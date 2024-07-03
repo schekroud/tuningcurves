@@ -52,7 +52,7 @@ def getSubjectInfo(subject):
     if subject['id'] == 10:
         param['badchans'] = []
     if subject['id'] == 11:
-        param['badchans'] = ['T8']
+        param['badchans'] = ['T8', 'P1']
     if subject['id'] == 12:
         param['badchans'] = ['T7']
     if subject['id'] == 13:
