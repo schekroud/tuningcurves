@@ -69,6 +69,9 @@ for i in subs:
                 })
             
             raw.set_montage('easycap-M1', on_missing='raise', match_case=False) #apply montage
+            raw.info['bads'] = param['badchans']
+            raw.interpolate_bads()            
+
             
             events, _ = mne.events_from_annotations(raw, event_id)
             
@@ -92,6 +95,11 @@ for i in subs:
             
             # epoched.plot(picks='eeg', scalings = dict(eeg = 50e-6), n_epochs = 4, n_channels = 61)
             
+            if i == 11 and part == 2:
+                #here there is a single trial with large enough variance to cause big issues with the ica
+                #drop this trial already
+                epoched.drop(1)
+            
             #run ica on the epoched data
             
             ica = mne.preprocessing.ICA(n_components = 0.95, method = 'infomax').fit(epoched, picks = 'eeg', reject_by_annotation=True)
@@ -100,13 +108,14 @@ for i in subs:
             ica.plot_scores(eog_scores, eog_inds)
                     
             ica.plot_components(inst=epoched, contours = 0)
-            print('\n\n- - - - - - - subject %d, %d components to remove: - - - - - - -\n\n'%(i, len(eog_inds)))
+            print('\n\n- - - - - - - subject %d part %s, %d components to remove: - - - - - - -\n\n'%(i, partstr, len(eog_inds)))
             
             comps2rem = input('components  remove: ') #need to separate component numbers by comma and space
             comps2rem = list(map(int, comps2rem.split(', ')))
             np.savetxt(fname = op.join(param['path'], 'removed_comps', 's%02d%s_removedcomps_arraylocked.txt'%(i, partstr)),
                        X = comps2rem, fmt = '%i') #record what components were removed
             ica.exclude.extend(comps2rem) #mark components for removal
+            ica.exclude = np.unique(ica.exclude).tolist()
             ica.apply(inst=epoched)
             
             epoched.save(fname = op.join(param['path'], 'eeg', param['substr'], f'{param["substr"]}{partstr}_arraylocked_icacleaned-epo.fif'),
