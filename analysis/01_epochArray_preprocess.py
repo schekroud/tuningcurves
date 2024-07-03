@@ -63,18 +63,12 @@ for i in subs:
             raw.set_channel_types(mapping = {
                 'VEOG':'eog',
                 'HEOG':'eog',
-                'LM':'misc',
-                'RM':'misc',
-                'Trigger':'misc'
+                'LM':'misc', 'RM':'misc', 'Trigger':'misc'
                 })
-            
             raw.set_montage('easycap-M1', on_missing='raise', match_case=False) #apply montage
             raw.info['bads'] = param['badchans']
             raw.interpolate_bads()            
-
-            
             events, _ = mne.events_from_annotations(raw, event_id)
-            
             epoched = mne.Epochs(raw, events, events_array, tmin, tmax, baseline, reject_by_annotation=False, preload=True) #epoch around array1 presentation
             
             #load in the behavioural data here
@@ -90,18 +84,11 @@ for i in subs:
                 tmp = pd.read_csv(op.join(bdir, ifile))
                 df = pd.concat([df, tmp])
             bdata = df.copy().sort_values(by = 'trialnum')
-            
             epoched.metadata = bdata #attach behavioural data to the eeg data
             
             # epoched.plot(picks='eeg', scalings = dict(eeg = 50e-6), n_epochs = 4, n_channels = 61)
             
-            if i == 11 and part == 2:
-                #here there is a single trial with large enough variance to cause big issues with the ica
-                #drop this trial already
-                epoched.drop(1)
-            
             #run ica on the epoched data
-            
             ica = mne.preprocessing.ICA(n_components = 0.95, method = 'infomax').fit(epoched, picks = 'eeg', reject_by_annotation=True)
             eog_epochs = mne.preprocessing.create_eog_epochs(raw, ch_name = ['HEOG', 'VEOG'])
             eog_inds, eog_scores = ica.find_bads_eog(eog_epochs)
