@@ -24,7 +24,8 @@ os.chdir(wd)
 from funcs import getSubjectInfo
 
 subs = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 23, 24, 25, 26])
-subs = np.array([         4, 5, 6, 7, 8, 9,     11, 12, 13, 14, 15, 16, 17, 18,     20, 21, 22, 23,     24, 25, 26]) #1,2,3,10,19 all have only 1 session. 23 something wrong? double check
+subs = np.array([         4, 5, 6, 7, 8, 9,     11, 12, 13, 14, 15, 16, 17, 18,     20, 21, 22, 23,     24, 25, 26])
+#1,2,3,10,19 all have only 1 session. 23 something wrong in the second session, completely unusable eeg data serious noise
 nsubs = subs.size
 
 #some parameters for epoching
@@ -51,7 +52,7 @@ for i in subs:
     sub = dict(loc = loc, id = i)
     param = getSubjectInfo(sub)
     
-    if i not in [1, 2, 3, 10]:
+    if i not in [1, 2, 3, 10, 19]:
         for part in [1,2]:
             partstr = ['a', 'b'][part-1]
             raw = mne.io.read_raw_curry(param[f'raw{part}'], preload=True)
@@ -67,6 +68,8 @@ for i in subs:
                 })
             raw.set_montage('easycap-M1', on_missing='raise', match_case=False) #apply montage
             raw.info['bads'] = param['badchans']
+            if i==20 and part==2:
+                raw.info['bads'].extend(['P6']) #this channel is flat in this recording, but not the first session
             raw.interpolate_bads()            
             events, _ = mne.events_from_annotations(raw, event_id)
             epoched = mne.Epochs(raw, events, events_array, tmin, tmax, baseline, reject_by_annotation=False, preload=True) #epoch around array1 presentation
@@ -113,7 +116,7 @@ for i in subs:
             del(epoched)
             del(ica)
             del(eog_epochs)
-    if i in [1, 2, 3, 10]:
+    if i in [1, 2, 3, 10, 19]:
         
         raw = mne.io.read_raw_curry(param[f'raw1'], preload=True)
         raw = mne.add_reference_channels(raw, ref_channels = 'LM', copy = False) #left mastoid was active reference, add it in as empty channel

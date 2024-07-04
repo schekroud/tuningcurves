@@ -64,23 +64,23 @@ def getSubjectInfo(subject):
     if subject['id'] == 16:
         param['badchans'] = []
     if subject['id'] == 17:
-        param['badchans'] = ['TP7', 'TP8']
+        param['badchans'] = ['TP7', 'TP8', 'T8', 'F5', 'AF7', 'AF3']
     if subject['id'] == 18:
         param['badchans'] = ['TP7']
     if subject['id'] == 19:
         param['badchans'] = []
     if subject['id'] == 20:
-        param['badchans'] = []
+        param['badchans'] = [] 
     if subject['id'] == 21:
         param['badchans'] = ['T8', 'T7', 'F6', 'FP2']
     if subject['id'] == 22:
         param['badchans'] = []
     if subject['id'] == 23:
-        param['badchans'] = []
+        param['badchans'] = [] #['FT7', 'FC5', 'F7', 'F5', 'FT8']
     if subject['id'] == 24:
         param['badchans'] = ['FT8', 'T7', 'T8']
     if subject['id'] == 25:
-        param['badchans'] = ['T8', 'TP7']
+        param['badchans'] = ['T8', 'TP7', 'TP8'] #there is also a decent amount of frontal channel noise that comes out as multiple ICA components
     if subject['id'] == 26:
         param['badchans'] = ['T8', 'F3', 'F5', 'T7', 'FT8']
 
