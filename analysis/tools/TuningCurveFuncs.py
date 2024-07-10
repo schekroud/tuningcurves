@@ -16,6 +16,8 @@ def wrap(x):
     return (x+180)%360 - 180
 def wrap90(x):
     return (x+90)%180 - 90
+def wrap90rad(x):
+    return (x+(np.pi/2))%np.pi - np.pi/2
 
 def createFeatureBins(binstep, binwidth, feature_start = -90, feature_end = 90):
     binmids = np.arange(feature_start, feature_end+1, binstep) #get the centre angle of each bin, in degrees
@@ -32,21 +34,22 @@ def visualise_FeatureBins(binstarts, binmids, binends):
 
     #get binwidth
     binwidth = int((binends[0]-binstarts[0])/2)
-    nangles = np.arange(binstarts.min(), binends.max()+1, 1)
-    nangles = np.deg2rad(nangles) #conv to radians
+    nanglesdeg = np.arange(binstarts.min(), binends.max()+1, 1)
+    nangles = np.deg2rad(nanglesdeg) #conv to radians
     tmpcurves = np.zeros(shape = [binstarts.size, nangles.size]) * np.nan #create empty thing to populate to show angle curves for bins
     tmpbins   = np.zeros_like(tmpcurves)
-    binangs   = np.zeros(shape = [binstarts.size, binwidth*2]) #store angles for each bin
+    binangs   = np.zeros(shape = [binstarts.size, (binwidth*2)+1]) #store angles for each bin
     for ibin in range(binstarts.size):
         istart, iend = binstarts[ibin], binends[ibin] #get the angles
-        istartrad, iendrad = np.deg2rad(binstarts[ibin]), np.deg2rad(binends[ibin])
-        iangles = np.arange(istart, iend)
+        istartrad, iendrad = np.deg2rad(istart), np.deg2rad(iend)
+        # iangles = np.arange(istart, iend)
+        iangles = nanglesdeg[np.argwhere(nanglesdeg==istart).squeeze():np.argwhere(nanglesdeg==iend).squeeze()+1]
         binangs[ibin] = iangles
         # iangles = np.deg2rad(iangles)
         imid = binmids[ibin]
         imidrad = np.deg2rad(binmids[ibin])
         # ibinmask = np.isin(nangles, np.arange(istart, iend)).astype(int)
-        ibinmask = np.logical_and(np.greater_equal(nangles, istartrad), np.less(nangles, iendrad))
+        ibinmask = np.logical_and(np.greater_equal(nangles, istartrad), np.less_equal(nangles, iendrad))
         tmpbins[ibin] = ibinmask
         ianglesrad = np.deg2rad(iangles)
         # tmp  = np.cos(np.radians(((iangles-imid)/binwidth*2))* np.pi)
@@ -119,7 +122,6 @@ def makeTuningCurve(data, orientations, binstep, binwidth, weight_trials=True, f
             iend    = np.radians(binends[b])
             imid    = np.radians(binmids[b])
             
-            
             #if non-overlapping bins, then the binwidth is exactly half the binstep
             if binwidth == int(binstep/2):
                 trlcheck = np.logical_and(np.greater_equal(relorisrad, istart), np.less(relorisrad, iend)) #make sure we are checking if *less* than the bin end, as we dont want overlap with the next feature bin
@@ -128,7 +130,6 @@ def makeTuningCurve(data, orientations, binstep, binwidth, weight_trials=True, f
             
             binoris = relorisrad[trlcheck] #get the orientations for trials that contribute to this feature bin
             bindata = xtrain[trlcheck]     #get the EEG data for trials that contribute to this feature bin
-            
             
             if weight_trials: #weight trial contribution to the mean based on distance from the centre of the feature bin
                 #this means that trials at the edges of the bin (less similar to the bin centre) contribute less than trials closer to the desired orientation
@@ -147,6 +148,91 @@ def makeTuningCurve(data, orientations, binstep, binwidth, weight_trials=True, f
     
     return d #return the mahalanobis distance between each trial and all other trials in feature space bins
             
+def getTuningCurve_FullSpace(data, orientations, binstep, binwidth, weight_trials=True, feature_start = -90, feature_end = 90):
+    
+    '''
+    this function is designed to be run per timepoint. as a result, inputs should look like:
+        
+    data:         array,      shape = [ntrials, nchannels], the EEG data being used
+    orientations: array-like, shape = [ntrials], vector containing the stimulus orientation associated with each trial
+    nbins:        integer, the number of bins to create the tuning curve with
+    binstep:      integer, number of degrees you advance along the feature (orientation) space for each bin centre
+    binwidth:     integer, the width of the feature (orientation) bin. this width is applied both sides (so true width = binwidth * 2)
+    weight_trials: Bool, whether or not trials within a bin should have their contribution to the mean activity weighted by their distance from bin centre
+    featurestart: integer, start point of the feature (orientation) space in degrees. (default -90)
+    featureend:   integer, end point of the feature (orientation) space in degrees. (default 90, this is INCLUSIVE)
+    
+    '''
+    
+    [ntrials, nfeatures] = data.shape #get shape
+    trls = np.arange(ntrials) #vector for trial number
+    
+    #set up feature (orientation) space bins
+    nbins, binmids, binstarts, binends = createFeatureBins(binstep, binwidth, feature_start, feature_end)
+    
+    d = np.zeros([ntrials, nbins]) * np.nan
+    
+    for trl in trls: #loop over trials
+        
+        xtrain = data[np.setdiff1d(trls, trl)]
+        xtest  = data[trl]
+        
+        oritrain = orientations[np.setdiff1d(trls, trl)]
+        oritest  = orientations[trl]
+        
+        reloris     = wrap90(np.subtract(oritrain, oritest)) #get the orientation of all training trials relative to the orientation of the test (left out) trial
+        relorisrad  = np.deg2rad(reloris) #convert to radians
+        
+        m       = np.zeros([nbins, nfeatures])   * np.nan #array to store mean activity across all trials within a feature bin
+        inbin   = np.zeros([len(xtrain), nbins]) * np.nan #array to store whether a trial is in a feature bin
+        
+        icov = np.linalg.pinv(np.cov(xtrain.T)) #get inverse covariance matrix for the training trials, across channels (shape = [nfeatures, nfeatures])
+        mahaldist = skl.metrics.DistanceMetric.get_metric('mahalanobis', VI = icov) #set up mahalanobis distance metric
+        
+        #loop over bins, get (weighted) activity in each bin
+        for b in range(nbins):
+            istart  = np.radians(binstarts[b])
+            iend    = np.radians(binends[b])
+            imid    = np.radians(binmids[b])
+            
+            #if non-overlapping bins, then the binwidth is exactly half the binstep
+            if binwidth == int(binstep/2):
+                trlcheck = np.logical_and(np.greater_equal(relorisrad, istart), np.less(relorisrad, iend)) #make sure we are checking if *less* than the bin end, as we dont want overlap with the next feature bin
+            else:
+                trlcheck = np.logical_and(np.greater_equal(relorisrad, istart), np.less_equal(relorisrad, iend)) #if you are doing overlapping bins this doesn't matter
+            
+            if wrap90(binstarts[b]) != binstarts[b]: #where the lower end goes below the limits, we need to consider the other side of the feature space due to symmetry
+                upper = np.radians(wrap90(binstarts[b]))
+                check_upper = np.greater_equal(relorisrad, upper)
+                trlcheck = np.logical_or(trlcheck, check_upper)
+                
+            if wrap90(binends[b]) != binends[b]:
+                lower = np.radians(wrap90(binends[b]))
+                check_lower = np.less_equal(relorisrad, lower)
+                trlcheck = np.logical_or(trlcheck, check_lower)
+            
+            
+            binoris = relorisrad[trlcheck] #get the orientations for trials that contribute to this feature bin
+            bindata = xtrain[trlcheck]     #get the EEG data for trials that contribute to this feature bin
+            
+            
+            if weight_trials: #weight trial contribution to the mean based on distance from the centre of the feature bin
+                #this means that trials at the edges of the bin (less similar to the bin centre) contribute less than trials closer to the desired orientation
+                w = np.cos( ((binoris-imid)/np.radians(binwidth*2))*np.pi ) #cosine weighting based on distance from bin centre (scaled by pi)
+                w = np.cos( (wrap90rad(binoris-imid)/np.radians(binwidth*2))*np.pi ) #cosine weighting based on distance from bin centre (scaled by pi), accounts for bins that wrap around symmetry limits
+            else:
+                w = np.ones(binoris.size) #if not weighting, just multiply everything by 1
+                
+            bindata = np.multiply(bindata, w.reshape(-1, 1)) #reshape weights to allow multiplication
+            
+            if bindata.size >0: #just prevents warnings churning out for means of empty slices (where no data in a bin because the relative orientations dont exist)
+                m[b,:] = np.nanmean(bindata, axis=0)
+        
+        nanbins = np.isnan(m).sum(axis=1)>0 #find bins where there are no data (due to design of orientations used in the task)
+        idists  = mahaldist.pairwise(xtest.reshape(1,-1), m[~nanbins]) #get mahalanobis distance between test trial activity and activity in all non-nan feature bins 
+        d[trl, ~nanbins] = idists
+    
+    return d #return the mahalanobis distance between each trial and all other trials in feature space bins
             
 def cosmodel(thetas, B0, B1, alpha):
     return B0 + (B1 * np.cos(alpha * thetas))
