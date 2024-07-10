@@ -116,7 +116,7 @@ for i in subs:
     
     if not op.exists(op.join(wd, 'data', 'tuningcurves', f's{i}_TuningCurve_metadata.csv')):
         bdata.to_csv(op.join(wd, 'data', 'tuningcurves', f's{i}_TuningCurve_metadata.csv'), index=False)
-    if i == 10:
+    if i == 4:
         np.save(op.join(wd, 'data', 'tuningcurves', 'times.npy'), times) #save times
 
 #%%
