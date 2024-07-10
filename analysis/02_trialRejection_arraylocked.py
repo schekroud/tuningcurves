@@ -12,10 +12,11 @@ import os
 import os.path as op
 import sys
 from matplotlib import pyplot as plt
+from copy import deepcopy
 %matplotlib
 mne.viz.set_browser_backend('qt')
 
-loc = 'laptop'
+loc = 'workstation'
 if loc == 'workstation':
     wd = 'C:/Users/sammirc/Desktop/postdoc/tuningcurves'
     # sys.path.insert(0, op.join(wd, 'analysis', 'tools'))
@@ -23,10 +24,10 @@ elif loc == 'laptop':
     wd = '/Users/sammichekroud/Desktop/postdoc/tuningcurves'
 sys.path.insert(0, op.join(wd, 'analysis', 'tools'))
 os.chdir(wd)
-from funcs import getSubjectInfo
+from funcs import getSubjectInfo, gesd, plot_AR
 
-subs = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 23, 24, 25, 26])
-subs = np.array([         4, 5, 6, 7, 8, 9,     11, 12, 13, 14, 15, 16, 17, 18,     20, 21, 22, 23,     24, 25, 26])
+subs = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
+subs = np.array([         4, 5, 6, 7, 8, 9,     11, 12, 13, 14, 15, 16, 17, 18,     20, 21, 22,     24, 25, 26])
 #1,2,3,10,19 all have only 1 session. 23 something wrong in the second session, completely unusable eeg data due to serious noise
 nsubs = subs.size
 
@@ -44,8 +45,7 @@ for i in subs:
                                   preload=True)
         epochs.shift_time(tshift = -0.025, relative = True) #shift based on photodiode timings, 25ms shift
         epochs = epochs.apply_baseline((-0.2, 0)) #baseline just prior to stim1 onset
-    
-    
+        epochs.metadata = epochs.metadata.assign(session = partstr)
     
         #run gesd
         #do trial rejection from the two files separately before concatenating events
@@ -75,16 +75,16 @@ for i in subs:
         del(epochs)
         plt.close('all')
 
-
+subcount=0
 for i in subs:
     subcount += 1
-    print(f'combining sessions for participant {subcount}/{nsubs}')
+    print(f'\ncombining sessions for participant {subcount}/{nsubs}')
     sub = dict(loc = loc, id = i)
     param = getSubjectInfo(sub)
     
     #trial rejection has happened separately on each dataset, so we can now combine into one object for subsequent analysis
-    epochs = mne.read_epochs(fname = op.join(param['path'], 'eeg', param['substr'], f'{param["substr"]}a_arraylocked_icacleaned-epo.fif'), preload=True)
-    epochs2 = mne.read_epochs(fname = op.join(param['path'], 'eeg', param['substr'], f'{param["substr"]}b_arraylocked_icacleaned-epo.fif'), preload=True)
+    epochs = mne.read_epochs(fname = op.join(param['path'], 'eeg', param['substr'], f'{param["substr"]}a_arraylocked_preprocessed-epo.fif'), preload=True)
+    epochs2 = mne.read_epochs(fname = op.join(param['path'], 'eeg', param['substr'], f'{param["substr"]}b_arraylocked_preprocessed-epo.fif'), preload=True)
     
     allEpochs = mne.concatenate_epochs([epochs, epochs2])
     
