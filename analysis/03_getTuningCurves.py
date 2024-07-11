@@ -50,19 +50,20 @@ smooth_singletrial = True
 
 binstep = 15
 binwidth = 22 #if you don't want overlap between bins, binwidth should be exactly half the binstep
+# binstep, binwidth = 4, 11
 # binstep, binwidth = 6, 3
 nbins, binmids, binstarts, binends = createFeatureBins(binstep = binstep, binwidth = binwidth,
-                                                       feature_start = -75, feature_end = 90)
+                                                       feature_start = -90+binstep, feature_end = 90)
 thetas = np.cos(np.radians(binmids))
 
-visualise_bins = True
+visualise_bins = False
 if visualise_bins:
     visualise_FeatureBins(binstarts, binmids, binends)
 
 subcount = 0
 for i in subs:
     subcount += 1
-    print(f'working on participant {subcount}/{nsubs}')
+    print(f'\n\nworking on participant {subcount}/{nsubs}')
     sub = dict(loc = loc, id = i)
     param = getSubjectInfo(sub)
 
@@ -98,6 +99,7 @@ for i in subs:
     orientations = np.array([bdata.ori1.to_numpy(), bdata.ori2.to_numpy()]) #2d array, [norientations, ntrials], orientations are [left, right] items
     trls = np.arange(ntrials)    
     
+    weightTrials=False
     nruns = 2 #two runs, first for left item, second for right item
     tc_all = np.empty(shape = [nruns, ntrials, nbins, ntimes]) * np.nan
     for irun in range(nruns):
@@ -107,12 +109,12 @@ for i in subs:
         for tp in range(ntimes):
             bar.update(tp)
             dists = getTuningCurve_FullSpace(data[:,:,tp], orisuse,
-                                    binstep = binstep, binwidth = binwidth, weight_trials=False, feature_start=-75, feature_end=90)
+                                    binstep = binstep, binwidth = binwidth, weight_trials = weightTrials, feature_start=-90+binstep, feature_end=90)
             tc[:,:,tp] = dists
         tc_all[irun] = tc.copy()
     
     #save data
-    np.save(op.join(wd, 'data', 'tuningcurves', f's{i}_TuningCurve_mahaldists_binstep{binstep}_binwidth{binwidth}.npy'), tc_all)
+    np.save(op.join(wd, 'data', 'tuningcurves', f's{i}_TuningCurve_mahaldists_binstep{binstep}_binwidth{binwidth}_weightTrials{weightTrials}.npy'), tc_all)
     
     if not op.exists(op.join(wd, 'data', 'tuningcurves', f's{i}_TuningCurve_metadata.csv')):
         bdata.to_csv(op.join(wd, 'data', 'tuningcurves', f's{i}_TuningCurve_metadata.csv'), index=False)
