@@ -11,6 +11,7 @@ import sklearn.metrics
 import scipy as sp
 from scipy import optimize
 from matplotlib import pyplot as plt
+import progressbar
 
 def wrap(x):
     return (x+180)%360 - 180
@@ -234,6 +235,29 @@ def getTuningCurve_FullSpace(data, orientations, binstep, binwidth, weight_trial
     
     return d #return the mahalanobis distance between each trial and all other trials in feature space bins
             
+def decode(args):
+    data, orientations, weightTrials, binstep, binwidth, nbins = args[0], args[1], args[2], args[3], args[4], args[5]
+    [ntrials, nfeatures, ntimes] = data.shape
+    tc = np.zeros(shape = [ntrials, nbins, ntimes]) * np.nan
+    bar = progressbar.ProgressBar(min_value = 0, max_value = ntimes, initial_value=0)
+    for tp in range(ntimes):
+        # bar.update(tp)
+        dists = getTuningCurve_FullSpace(data[:,:,tp], orientations, binstep = binstep, binwidth = binwidth, weight_trials=weightTrials,
+                                         feature_start = -90+binstep, feature_end = 90)
+        tc[:,:,tp] = dists
+    return tc
+
+def decode2(data, orientations, weightTrials, binstep, binwidth, nbins):
+    [ntrials, nfeatures, ntimes] = data.shape
+    tc = np.zeros(shape = [ntrials, nbins, ntimes]) * np.nan
+    bar = progressbar.ProgressBar(min_value = 0, max_value = ntimes, initial_value=0)
+    for tp in range(ntimes):
+        # bar.update(tp)
+        dists = getTuningCurve_FullSpace(data[:,:,tp], orientations, binstep = binstep, binwidth = binwidth, weight_trials=weightTrials,
+                                         feature_start = -90+binstep, feature_end = 90)
+        tc[:,:,tp] = dists
+    return tc
+
 def cosmodel(thetas, B0, B1, alpha):
     return B0 + (B1 * np.cos(alpha * thetas))
 
