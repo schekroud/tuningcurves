@@ -47,6 +47,12 @@ nitems = 2 #two items are presented in the array, we 'decode' both
 nbins, binmids, binstarts, binends = createFeatureBins(binstep = binstep, binwidth = binwidth,
                                                        feature_start = -75, feature_end = 90)
 
+weightTrials = True
+if weightTrials:
+    addstr = '_weightTrialsTrue'
+else:
+    addstr = ''
+
 alldata = np.zeros(shape = [subs.size, nitems, binmids.size, ntimes]) * np.nan #2 because 2 items decoded
 subcount = -1
 for i in subs:
@@ -54,7 +60,7 @@ for i in subs:
     print(f'working on ppt {subcount+1}/{subs.size}')
     
     #read in single subject data
-    data = np.load(op.join(wd, 'data', 'tuningcurves', f's{i}_TuningCurve_mahaldists_binstep{binstep}_binwidth{binwidth}.npy'))
+    data = np.load(op.join(wd, 'data', 'tuningcurves', f's{i}_TuningCurve_mahaldists_binstep{binstep}_binwidth{binwidth}{addstr}.npy'))
     bdata = pd.read_csv(op.join(wd, 'data', 'tuningcurves', f's{i}_TuningCurve_metadata.csv'))
     [nitems, ntrials, nbins, ntimes] = data.shape
     
