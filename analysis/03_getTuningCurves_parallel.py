@@ -53,9 +53,11 @@ smooth_singletrial = True
 
 # binstep = 15
 # binwidth = 22 #if you don't want overlap between bins, binwidth should be exactly half the binstep
-# binstep, binwidth = 4, 11
-# binstep, binwidth = 4, 22
-binstep, binwidth = 4, 16
+# binstep, binwidth = 4, 11 #4 degree jumps, 22 degree full width
+# binstep, binwidth = 4, 22 #4 degree jumps, 44 degree full width
+# binstep, binwidth = 4, 16 #4 degree jumps, 32 degree full width
+binstep, binwidth = 15, 10 #jumps of 15 degrees, 20 degree full width 
+# binstep, binwidth = 15, 15 #jumps of 15 degrees, 30 degree full width
 
 nbins, binmids, binstarts, binends = createFeatureBins(binstep = binstep, binwidth = binwidth,
                                                        feature_start = -90+binstep, feature_end = 90)
