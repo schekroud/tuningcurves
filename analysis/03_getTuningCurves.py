@@ -14,6 +14,7 @@ import os.path as op
 import sys
 from matplotlib import pyplot as plt
 from copy import deepcopy
+import time
 %matplotlib
 mne.viz.set_browser_backend('qt')
 import progressbar
@@ -51,7 +52,8 @@ smooth_singletrial = True
 binstep = 15
 binwidth = 22 #if you don't want overlap between bins, binwidth should be exactly half the binstep
 # binstep, binwidth = 4, 11
-# binstep, binwidth = 6, 3
+binstep, binwidth = 4, 16
+# binstep, binwidth = 4, 22
 nbins, binmids, binstarts, binends = createFeatureBins(binstep = binstep, binwidth = binwidth,
                                                        feature_start = -90+binstep, feature_end = 90)
 thetas = np.cos(np.radians(binmids))
@@ -102,6 +104,7 @@ for i in subs:
     weightTrials=False
     nruns = 2 #two runs, first for left item, second for right item
     tc_all = np.empty(shape = [nruns, ntrials, nbins, ntimes]) * np.nan
+    tic = time.time()
     for irun in range(nruns):
         orisuse = orientations[irun].copy() #get orientations for stimuli on the particular side of the display to decode
         tc = np.zeros(shape = [ntrials, nbins, ntimes]) * np.nan
@@ -112,7 +115,8 @@ for i in subs:
                                     binstep = binstep, binwidth = binwidth, weight_trials = weightTrials, feature_start=-90+binstep, feature_end=90)
             tc[:,:,tp] = dists
         tc_all[irun] = tc.copy()
-    
+    toc = time.time()
+    print(f'decoding took {int(divmod(toc-tic, 60)[0])}m{round(divmod(toc-tic, 60)[1])}s')
     #save data
     np.save(op.join(wd, 'data', 'tuningcurves', f's{i}_TuningCurve_mahaldists_binstep{binstep}_binwidth{binwidth}_weightTrials{weightTrials}.npy'), tc_all)
     
