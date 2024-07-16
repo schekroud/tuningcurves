@@ -11,6 +11,7 @@ import sklearn.metrics
 import scipy as sp
 from scipy import optimize
 from matplotlib import pyplot as plt
+import multiprocessing as mp
 import progressbar
 
 def wrap(x):
@@ -257,6 +258,11 @@ def decode2(data, orientations, weightTrials, binstep, binwidth, nbins):
                                          feature_start = -90+binstep, feature_end = 90)
         tc[:,:,tp] = dists
     return tc
+
+def decode_parallel(args):
+    pool = mp.Pool(2)
+    res = pool.starmap(decode2, args)
+    return res
 
 def cosmodel(thetas, B0, B1, alpha):
     return B0 + (B1 * np.cos(alpha * thetas))
