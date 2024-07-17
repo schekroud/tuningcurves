@@ -259,6 +259,14 @@ def decode2(data, orientations, weightTrials, binstep, binwidth, nbins):
         tc[:,:,tp] = dists
     return tc
 
+def decode_tp(data, orientations, weightTrials, binstep, binwidth, nbins):
+    [ntrials, nfeatures] = data.shape
+    tc = np.zeros(shape = [ntrials, nbins]) * np.nan
+    dist = getTuningCurve_FullSpace(data, orientations, binstep = binstep, binwidth = binwidth, weight_trials = weightTrials,
+                                    feature_start = -90 + binstep, feature_end = 90)
+    return dist #returns distances of shape [ntrials x nbins]
+    
+
 def decode_parallel(args):
     pool = mp.Pool(2)
     res = pool.starmap(decode2, args)
