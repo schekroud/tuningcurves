@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 from copy import deepcopy
 import time
 %matplotlib
-mne.viz.set_browser_backend('qt')
+#mne.viz.set_browser_backend('qt')
 import progressbar
 progressbar.streams.flush()
 

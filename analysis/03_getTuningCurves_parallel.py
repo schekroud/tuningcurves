@@ -51,13 +51,14 @@ smooth_singletrial = True
 # and we need this info for preallocating arrays, lets do this here
 # set up orientation bins
 
-# binstep = 15
-# binwidth = 22 #if you don't want overlap between bins, binwidth should be exactly half the binstep
+
+#if you don't want overlap between bins, binwidth should be exactly half the binstep
 # binstep, binwidth = 4, 11 #4 degree jumps, 22 degree full width
-# binstep, binwidth = 4, 22 #4 degree jumps, 44 degree full width
 # binstep, binwidth = 4, 16 #4 degree jumps, 32 degree full width
-binstep, binwidth = 15, 10 #jumps of 15 degrees, 20 degree full width 
-# binstep, binwidth = 15, 15 #jumps of 15 degrees, 30 degree full width
+# binstep, binwidth = 4, 22 #4 degree jumps, 44 degree full width
+# binstep, binwidth = 15, 10 #jumps of 15 degrees, 20 degree full width 
+binstep, binwidth = 15, 15 #jumps of 15 degrees, 30 degree full width
+# binstep, binwidth = 15, 22 #jumps of 15 degrees, 44 degree full width
 
 nbins, binmids, binstarts, binends = createFeatureBins(binstep = binstep, binwidth = binwidth,
                                                        feature_start = -90+binstep, feature_end = 90)
@@ -66,7 +67,7 @@ thetas = np.cos(np.radians(binmids))
 visualise_bins = False
 if visualise_bins:
     visualise_FeatureBins(binstarts, binmids, binends)
-
+bigtic = time.time()
 if __name__ == "__main__":
     subcount = 0
     for i in subs:
@@ -106,28 +107,41 @@ if __name__ == "__main__":
         bdata = epochs.metadata.copy()
         orientations = np.array([bdata.ori1.to_numpy(), bdata.ori2.to_numpy()]) #2d array, [norientations, ntrials], orientations are [left, right] items
         trls = np.arange(ntrials)    
-        
-        
-        # def decode_parallel(args):
-        #     pool = mp.Pool(2)
-        #     res = pool.starmap(decode2, args)
-        #     return res
-        
+
         nitems=2
         weightTrials = True
-        decoding_finished = False
         
-        with mp.Pool(2) as pool:
-            args  = tuple([((data, orientations[irun], weightTrials, binstep, binwidth, nbins)) for irun in range(nitems)])
-            print(f'\nrunning orientation decoding')
-            tic = time.time()
-            tcs = pool.starmap(TuningCurveFuncs.decode2, args) #run decoding function (loops over trials and timepoints) in parallel for each item in the array
-            # tcs = TuningCurveFuncs.decode_parallel(args)
-            toc=time.time()
-            print(f'decoding took {int(divmod(toc-tic, 60)[0])}m{round(divmod(toc-tic, 60)[1])}s')
-        tc_all = np.array(tcs) #combine into one array to be saved
+        #this works to parallelise over items in the array
+        # with mp.Pool(2) as pool:
+        #     args  = tuple([((data, orientations[irun], weightTrials, binstep, binwidth, nbins)) for irun in range(nitems)])
+        #     print(f'\nrunning orientation decoding')
+        #     tic = time.time()
+        #     tcs = pool.starmap(TuningCurveFuncs.decode2, args) #run decoding function (loops over trials and timepoints) in parallel for each item in the array
+        #     # tcs = TuningCurveFuncs.decode_parallel(args)
+        #     toc=time.time()
+        #     print(f'decoding took {int(divmod(toc-tic, 60)[0])}m{round(divmod(toc-tic, 60)[1])}s')
+        # tc_all = np.array(tcs) #combine into one array to be saved
             # pool.close()
             # pool.join()
+        
+        #this works to parallelise over timepoints, running decoding on items in the array sequentially
+        #in theory this makes better use of cores (8 vs 2) by running more timepoints in parallel than items in the array
+        print('\nrunning orientation decoding')
+        tic = time.time()
+        tc_all = np.zeros(shape = [nitems, ntrials, nbins, ntimes]) * np.nan
+        for iitem in range(nitems):
+            tc = tc_all[iitem].copy()
+            oris = orientations[iitem].copy() #get orientations for bars on this side
+            with mp.Pool(10) as pool:
+                args = tuple([(data[:,:,tp].copy(), oris, weightTrials, binstep, binwidth, nbins) for tp in range(ntimes)])
+                dists = pool.starmap(TuningCurveFuncs.decode_tp, args)
+                tc = np.array(dists).transpose([1, 2, 0]) #reorder dimensions to be [ntrials x nbins x ntimes]
+                pool.close()
+                pool.join()
+            tc_all[iitem] = tc
+        toc = time.time()
+        print(f'decoding took {int(divmod(toc-tic, 60)[0])}m{round(divmod(toc-tic, 60)[1])}s')
+                
         #this lets you visualise the tuning curve to see if its working or not
         # tmp2 = tc_all.copy().mean(0).mean(0)*-1
         # for tp in range(ntimes):
@@ -146,7 +160,8 @@ if __name__ == "__main__":
         if i == 4:
             np.save(op.join(wd, 'data', 'tuningcurves', 'times.npy'), times) #save times
         del(epochs)
-        del(tcs)
         del(tc_all)
         del(bdata)
         del(data)
+bigtoc = time.time()
+print(f'decoding took {int(divmod(bigtoc-bigtic, 60)[0])}m{round(divmod(bigtoc-bigtic, 60)[1])}s')
