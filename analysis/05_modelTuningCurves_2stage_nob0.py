@@ -40,11 +40,12 @@ nsubs = subs.size
 
 #get bin structure for data we want to load in
 weightTrials = True #whether trial contributions to mean activity for a reference bin are weighted by distance from the bin centre
+# binstep, binwidth = 4, 11 #4 degree jumps, 22 degree full width
+# binstep, binwidth = 4, 16 #4 degree jumps, 32 degree full width
+# binstep, binwidth = 4, 22 #4 degree jumps, 44 degree full width
+binstep, binwidth = 15, 10 #jumps of 15 degrees, 20 degree full width 
+binstep, binwidth = 15, 15 #jumps of 15 degrees, 30 degree full width
 # binstep, binwidth = 15, 22 #jumps of 15 degrees, 44 degree full width
-# binstep, binwidth = 4, 11 # jumps of 4 degrees, 22 degrees full width
-binstep, binwidth = 4, 16 # jumps of 4 degrees, 32 degrees full width
-# binstep, binwidth = 4, 22 # jumps of 4 degrees, 44 degrees full width
-# binstep, binwidth = 6, 3
 _, binmids, binstarts, binends = createFeatureBins(binstep = binstep, binwidth = binwidth,
                                                        feature_start = -90+binstep, feature_end = 90)
 thetas = np.cos(np.radians(binmids))
