@@ -367,6 +367,9 @@ def fixedAlphaCosine(thetas, B0, B1):
     
     return B0 + B1*np.cos(thetas)
 
+def b0_cosine(thetas, B0, alpha):
+    return B0 + np.cos(alpha * thetas)
+
 def b1_cosine(thetas, B1):
     '''
     thetas - angles for bins, already pre-multiplied by alpha scaling factor
@@ -391,5 +394,15 @@ def fitAlpha(thetas, distances, p0 = None, bounds = None):
     
     return fitparams[0] #return the optimized recovered parameters
 
+def fit_b0cos(thetas, distances, p0 = None, bounds = None):
+    if bounds == None:
+        fitparams = sp.optimize.curve_fit(b0_cosine, thetas, distances,
+                                          p0 = p0, maxfev = 5000, method = 'trf', nan_policy='omit')
+    else:
+        fitparams = sp.optimize.curve_fit(b0_cosine, thetas, distances,
+                                          p0 = p0, bounds = bounds,
+                                          maxfev = 5000, method = 'trf', nan_policy='omit')
+    
+    return fitparams[0] #return the optimized recovered parameters
 
 
