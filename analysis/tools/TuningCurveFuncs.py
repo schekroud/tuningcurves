@@ -360,6 +360,9 @@ def getCosineFit(angles, data, fitType = 'curve', bounds = None, p0 = None, meth
 def basic_cosine(thetas, alpha):
     return np.cos(alpha * thetas)
 
+def basic_cosine_demean(thetas, alpha):
+    return np.cos(alpha*thetas) - np.cos(alpha*thetas).mean()
+
 def fixedAlphaCosine(thetas, B0, B1):
     '''
     thetas - angles for bins, already pre-multiplied by our alpha scaling factor
@@ -406,3 +409,66 @@ def fit_b0cos(thetas, distances, p0 = None, bounds = None):
     return fitparams[0] #return the optimized recovered parameters
 
 
+def gaussfunc(x, mu, sigma):
+    return (1/(sigma * np.sqrt(2*np.pi))) * np.exp(-((x-mu)**2/(2 * sigma**2)))
+
+def gaussfunc_b0(x, b0,  mu, sigma):
+    return b0 + (1/(sigma * np.sqrt(2*np.pi))) * np.exp(-((x-mu)**2/(2 * sigma**2)))
+
+#define function to create a gaussian with a mean of zero
+def gaussfunc_zeromean(x, sigma):
+    return (1/(sigma * np.sqrt(2*np.pi))) * np.exp(-((x-0)**2/(2 * sigma**2)))
+
+
+def gaussfunc_zeromeanY(x, mu, sigma):
+    '''
+    gaussian function with mean **across y** - demeans the resultant gaussian to allow fitting of negative values
+    '''
+    g = (1/(sigma * np.sqrt(2*np.pi))) * np.exp(-((x-mu)**2/(2 * sigma**2)))
+    return g - g.mean()
+
+def gaussfunc_b1only_ydemean(x, b1, mu, sigma):
+    g = (1/(sigma * np.sqrt(2*np.pi))) * np.exp(-((x-mu)**2/(2 * sigma**2)))
+    return b1 * (g - g.mean())
+    
+
+#define function that describes a model that is a multiplier of this gaussian
+# e.g. fitting distances ~ B1 * N(0, sigma) and estimating B1 where sigma is previously estimated
+def gaussfunc_b1only(x, B1, sigma):
+    return B1 * (1/(sigma * np.sqrt(2*np.pi))) * np.exp(-((x-0)**2/(2 * sigma**2)))
+
+#define function that describes a model that is a multiplier of the previously estimated gaussian, with a baseline value (intercept)
+# e.g. fitting B0 + B1 * N(0, sigma) - estimating B0 and B1, where sigma was previously estimated
+def gaussfunc_fullbeta(x, B0, B1, sigma):
+    return B0 + B1 * (1/(sigma * np.sqrt(2*np.pi))) * np.exp(-((x-0)**2/(2 * sigma**2)))
+
+
+def fit_width(distances, thetas):
+    '''
+    takes data at a single time point and fits gaussian to estimate width of the distances across orientation
+    - fits a gaussian with mean 0 (middle value of orientations is 0) and std deviation of the gaussian is estimated from the data
+    
+    data = np.array, size = number of orientation bins
+    thetas = np.array, centre angle of each orientation bin (degrees)
+    '''
+    
+    fitparams = sp.optimize.curve_fit(gaussfunc_zeromean,
+                                      xdata = thetas,
+                                      ydata = distances,
+                                      method = 'trf')[0]
+    return fitparams[0]
+
+def fit_width_b0(distances, thetas):
+    '''
+    takes data at a single time point and fits gaussian to estimate width of the distances across orientation
+    - fits a gaussian with mean 0 (middle value of orientations is 0) and std deviation of the gaussian is estimated from the data
+    
+    data = np.array, size = number of orientation bins
+    thetas = np.array, centre angle of each orientation bin (degrees)
+    '''
+    
+    fitparams = sp.optimize.curve_fit(lambda x, b0, sigma: gaussfunc_b0(x, b0, 0, sigma), #specify mu of 0
+                                      xdata = thetas,
+                                      ydata = distances,
+                                      method = 'trf')[0]
+    return fitparams
