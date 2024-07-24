@@ -379,6 +379,10 @@ def b1_cosine(thetas, B1):
     '''
     return B1 * np.cos(thetas)
 
+def b1_cosine2(thetas, B1, alpha):
+    cost = np.cos(alpha*thetas)
+    return B1 * (cost - cost.mean())
+
 def fullCosineModel(thetas, B0, B1, alpha):
     return B0 + (B1 * np.cos(alpha * thetas))
 
@@ -409,66 +413,31 @@ def fit_b0cos(thetas, distances, p0 = None, bounds = None):
     return fitparams[0] #return the optimized recovered parameters
 
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+
+#you can use lamba expressions here to fix values if you need in any of the 'full models'
 def gaussfunc(x, mu, sigma):
     return (1/(sigma * np.sqrt(2*np.pi))) * np.exp(-((x-mu)**2/(2 * sigma**2)))
 
-def gaussfunc_b0(x, b0,  mu, sigma):
-    return b0 + (1/(sigma * np.sqrt(2*np.pi))) * np.exp(-((x-mu)**2/(2 * sigma**2)))
+#note if you want to not include b0 as a parameter you fix it at 0
+#note if you want to not include b1 as a parameter you fix it at 1
+def gauss_fullmodel(x, mu, sigma, b0, b1):
+    gx = gaussfunc(x, mu, sigma)
+    return b0 + b1 * gx
 
-#define function to create a gaussian with a mean of zero
-def gaussfunc_zeromean(x, sigma):
-    return (1/(sigma * np.sqrt(2*np.pi))) * np.exp(-((x-0)**2/(2 * sigma**2)))
-
-
-def gaussfunc_zeromeanY(x, mu, sigma):
+def gauss_demeaned(x, mu, sigma):
     '''
-    gaussian function with mean **across y** - demeans the resultant gaussian to allow fitting of negative values
+    generate a gaussian demeaned across the y dimension (allows gaussian to model some negative values)
     '''
-    g = (1/(sigma * np.sqrt(2*np.pi))) * np.exp(-((x-mu)**2/(2 * sigma**2)))
-    return g - g.mean()
+    gx = gaussfunc(x, mu, sigma)
+    return gx - gx.mean()
 
-def gaussfunc_b1only_ydemean(x, b1, mu, sigma):
-    g = (1/(sigma * np.sqrt(2*np.pi))) * np.exp(-((x-mu)**2/(2 * sigma**2)))
-    return b1 * (g - g.mean())
-    
-
-#define function that describes a model that is a multiplier of this gaussian
-# e.g. fitting distances ~ B1 * N(0, sigma) and estimating B1 where sigma is previously estimated
-def gaussfunc_b1only(x, B1, sigma):
-    return B1 * (1/(sigma * np.sqrt(2*np.pi))) * np.exp(-((x-0)**2/(2 * sigma**2)))
-
-#define function that describes a model that is a multiplier of the previously estimated gaussian, with a baseline value (intercept)
-# e.g. fitting B0 + B1 * N(0, sigma) - estimating B0 and B1, where sigma was previously estimated
-def gaussfunc_fullbeta(x, B0, B1, sigma):
-    return B0 + B1 * (1/(sigma * np.sqrt(2*np.pi))) * np.exp(-((x-0)**2/(2 * sigma**2)))
-
-
-def fit_width(distances, thetas):
+#note if you want to not include b0 as a parameter you fix it at 0
+#note if you want to not include b1 as a parameter you fix it at 1
+def gauss_demeaned_fullmodel(x, mu, sigma, b0, b1):
     '''
-    takes data at a single time point and fits gaussian to estimate width of the distances across orientation
-    - fits a gaussian with mean 0 (middle value of orientations is 0) and std deviation of the gaussian is estimated from the data
-    
-    data = np.array, size = number of orientation bins
-    thetas = np.array, centre angle of each orientation bin (degrees)
+    generate a gaussian demeaned across the y dimension (allows gaussian to model some negative values)
     '''
-    
-    fitparams = sp.optimize.curve_fit(gaussfunc_zeromean,
-                                      xdata = thetas,
-                                      ydata = distances,
-                                      method = 'trf')[0]
-    return fitparams[0]
-
-def fit_width_b0(distances, thetas):
-    '''
-    takes data at a single time point and fits gaussian to estimate width of the distances across orientation
-    - fits a gaussian with mean 0 (middle value of orientations is 0) and std deviation of the gaussian is estimated from the data
-    
-    data = np.array, size = number of orientation bins
-    thetas = np.array, centre angle of each orientation bin (degrees)
-    '''
-    
-    fitparams = sp.optimize.curve_fit(lambda x, b0, sigma: gaussfunc_b0(x, b0, 0, sigma), #specify mu of 0
-                                      xdata = thetas,
-                                      ydata = distances,
-                                      method = 'trf')[0]
-    return fitparams
+    gx = gaussfunc(x, mu, sigma)
+    return b0 + (b1 * (gx - gx.mean()))
