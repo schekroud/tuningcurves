@@ -412,6 +412,15 @@ def fit_b0cos(thetas, distances, p0 = None, bounds = None):
     
     return fitparams[0] #return the optimized recovered parameters
 
+def fitAlpha_B1Alpha_tpwise(thetas, distances, p0 = None, bounds = None):
+    fitparams = sp.optimize.curve_fit(lambda x, B1, alpha: fullCosineModel(x, 0, B1, alpha), #fixes B0 at 0 (removes from model, keeps everything else)
+                                      xdata = thetas,
+                                      ydata = distances,
+                                      p0 = p0, bounds = bounds,
+                                      maxfev = 5000, method = 'trf', nan_policy='omit')
+    return fitparams[0]
+                                      
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
