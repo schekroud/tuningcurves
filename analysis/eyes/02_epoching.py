@@ -14,25 +14,29 @@ import sys
 from matplotlib import pyplot as plt
 %matplotlib
 
-loc = 'laptop'
+loc = 'workstation'
 if loc == 'laptop':
     #eyefuncdir = '/Users/sammichekroud/Desktop/postdoc/student_projects/EffortDifficulty/analysis/tools'
     eyefuncdir = '/Users/sammichekroud/Desktop/postdoc/tools'
-    wd = '/Users/sammichekroud/Desktop/postdoc/wmconfidence' #working on confidence data, but in postdoc dir
+    wd         = '/Users/sammichekroud/Desktop/postdoc/wmconfidence' #working on confidence data, but in postdoc dir
+elif loc == 'workstation':
+    eyefuncdir = 'C:/Users/sammirc/Desktop/postdoc/tools/'
+    wd         =  'C:/Users/sammirc/Desktop/postdoc/tuningcurves'
 os.chdir(wd)
 sys.path.insert(0, eyefuncdir)
 #import eyefuncs_v2 as eyes
 import eyefuncs as eyes
 
 eyedir = op.join(wd, 'data', 'eyes')
+if not op.exists(op.join(eyedir, 'epoched')):
+    os.mkdir(op.join(eyedir, 'epoched'))
+
 bdir   = op.join(wd, 'data', 'datafiles')
 
 subs = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
 subs = np.array([         4, 5, 6, 7, 8, 9,     11, 12, 13, 14, 15, 16, 17, 18,     20, 21, 22,     24, 25, 26])
 
 nsubs = subs.size
-
-
 #set some params here
 for sub in subs:
     # if not op.exists(op.join(eyedir, 'preprocessed', f'EffDS{sub}_preprocessed.pickle')): #dont do this if it already exists!
@@ -57,7 +61,7 @@ for sub in subs:
             # ax.plot(raw.data[0].time, raw.data[0].pupil_corrected_l, color = 'r', lw = 0.5)
             
             
-            tmin, tmax = -1, 2
+            tmin, tmax = -0.5, 1.25
             
             epoched = eyes.utils.epochs(raw, tmin = tmin, tmax = tmax,
                                         channels = ['pupil_corrected'],

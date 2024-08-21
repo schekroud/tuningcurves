@@ -13,17 +13,22 @@ import sys
 from matplotlib import pyplot as plt
 %matplotlib
 
-loc = 'laptop'
+loc = 'workstation'
 if loc == 'laptop':
     #eyefuncdir = '/Users/sammichekroud/Desktop/postdoc/student_projects/EffortDifficulty/analysis/tools'
     eyefuncdir = '/Users/sammichekroud/Desktop/postdoc/tools'
-    wd = '/Users/sammichekroud/Desktop/postdoc/wmconfidence' #working on confidence data, but in postdoc dir
+    wd         = '/Users/sammichekroud/Desktop/postdoc/wmconfidence' #working on confidence data, but in postdoc dir
+elif loc == 'workstation':
+    eyefuncdir = 'C:/Users/sammirc/Desktop/postdoc/tools/'
+    wd         =  'C:/Users/sammirc/Desktop/postdoc/tuningcurves'
 os.chdir(wd)
 sys.path.insert(0, eyefuncdir)
 #import eyefuncs_v2 as eyes
 import eyefuncs as eyes
 
 eyedir = op.join(wd, 'data', 'eyes')
+if not op.exists(op.join(eyedir, 'preprocessed')):
+    os.mkdir(op.join(eyedir, 'preprocessed'))
 
 subs = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
 subs = np.array([         4, 5, 6, 7, 8, 9,     11, 12, 13, 14, 15, 16, 17, 18,     20, 21, 22,     24, 25, 26])
@@ -48,14 +53,14 @@ for sub in subs:
             
             #if you want to visualise the eyes in each block to see where it is missing blocks of data
             #uncomment below and run
-            fig = plt.figure(figsize = [15, 6])
-            for iplot in range(data.nblocks):
-                ax = fig.add_subplot(2, 4, iplot+1)
-                ax.plot(data.data[iplot].trackertime, data.data[iplot].pupil_l, color='b', lw = 1, alpha=0.5, label = 'left')
-                ax.plot(data.data[iplot].trackertime, data.data[iplot].pupil_r, color='r', lw = 1, alpha=0.5, label = 'right')
-                ax.set_title(f'block {data.blocks[iplot]}', size=10)
-                ax.legend(frameon=False)
-            fig.suptitle(f'participant {sub} part {part}')
+            # fig = plt.figure(figsize = [15, 6])
+            # for iplot in range(data.nblocks):
+            #     ax = fig.add_subplot(2, 4, iplot+1)
+            #     ax.plot(data.data[iplot].trackertime, data.data[iplot].pupil_l, color='b', lw = 1, alpha=0.5, label = 'left')
+            #     ax.plot(data.data[iplot].trackertime, data.data[iplot].pupil_r, color='r', lw = 1, alpha=0.5, label = 'right')
+            #     ax.set_title(f'block {data.blocks[iplot]}', size=10)
+            #     ax.legend(frameon=False)
+            # fig.suptitle(f'participant {sub} part {part}')
             
             if sub == 11:
                 if part == 'a':
