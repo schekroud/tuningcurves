@@ -128,6 +128,25 @@ for i in subs:
     
     #at the second stage, we want to fit b1 as a glm
     
+    def minmax(vector):
+        return np.divide(vector - vector.min(), vector.max()-vector.min())
+    
+    # az = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
+    # fig = plt.figure()
+    # ax = fig.add_subplot(121)
+    # ax2 = fig.add_subplot(122)
+    # for i in range(az.size):
+    #     iaz = az[i]
+    #     ploty = np.cos(binmidsrad*iaz)
+    #     plotyminmax = minmax(ploty)
+    #     ax.plot(binmidsrad, ploty, label = str(iaz))
+    #     ax2.plot(binmidsrad, plotyminmax, label = str(iaz))
+    # ax.legend(loc='lower center')    
+    # ax2.legend(loc='lower center')    
+    
+    
+    
+    
     print('estimating beta on demeaned distances, per stimulus, trial and timepoint')
     tic=time.time()
     betas = np.zeros(shape = [nitems, ntrials, ntimes]) * np.nan
@@ -143,6 +162,7 @@ for i in subs:
                 ia = alphas[iitem, itrl, tp]
                 desmat = np.cos(binmidsrad*ia) #get a regressor that is the alpha-scaled bin centres for cosine fit
                 desmat = desmat - desmat.mean() #demean design matrix (cosine regressor) as modelling demeaned distances
+                
                 gl = sma.GLM(endog = iy, exog = desmat, family = sma.families.Gaussian())
                 # lm = sma.regression.linear_model.OLS(endog=iy, exog=desmat, hasconst=False)
                 glfit = gl.fit()
