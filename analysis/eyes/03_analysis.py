@@ -50,7 +50,7 @@ t = np.zeros(shape = [nsubs, nregs, 3000]) * np.nan
 #ppts x tuning curve timepoints x regressors x
 b = np.zeros(shape = [nsubs, 175, nregs, 1750]) * np.nan
 t = np.zeros(shape = [nsubs, 175, nregs, 1750]) * np.nan
-
+modeltimes = np.round(np.load(op.join(wd, 'data', 'tuningcurves', 'times.npy')), 2)
 
 subcount=-1
 for sub in subs:
@@ -64,16 +64,40 @@ for sub in subs:
     binstep, binwidth = 4, 22
     smooth_alphas, smooth_sigma = True, 3
     
-    alpha = np.load(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'fixedalpha_b1only',
-                    f's{sub}_ParamFits_Alpha_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}_no_bzero.npy'))
-    b1 = np.load(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'fixedalpha_b1only',
-                    f's{sub}_ParamFits_Beta_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}_no_bzero.npy'))
+    # alpha = np.load(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'fixedalpha_b1only',
+    #                 f's{sub}_ParamFits_Alpha_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}_no_bzero.npy'))
+    # b1 = np.load(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'fixedalpha_b1only',
+    #                 f's{sub}_ParamFits_Beta_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}_no_bzero.npy'))
+    
+    alpha = np.load(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit',
+            f's{sub}_ParamFits_Alpha_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}.npy'))
+    b1glm = np.load(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit',
+            f's{sub}_ParamFits_Beta_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}_glmfit.npy'))
+    b1opt = np.load(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit',
+            f's{sub}_ParamFits_Beta_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}_optfit.npy'))
+    
+    
     tcbdata = pd.read_csv(op.join(wd, 'data', 'tuningcurves', f's{sub}_TuningCurve_metadata.csv')) #read in associated behavioural data
-    modeltimes = np.round(np.load(op.join(wd, 'data', 'tuningcurves', 'times.npy')), 2)
     
     #average parameter estimates across items, as we dont have pupillometry separately for each item
-    alpha = alpha.mean(0)
-    b1    = b1.mean(0)
+    # alpha = alpha.mean(0)
+    # b1    = b1.mean(0)
+    alpha = alpha.mean(0) #average across items in the array
+    use_b = True
+    if use_b:
+        paramind = 0
+        addtext = 'modelB1beta'
+    elif not use_b:
+        paramind = 1
+        addtext = 'modelB1tvalue'
+        
+    fittype = 'opt'
+    if fittype == 'opt':
+        b1    = b1opt.mean(0)[:,paramind] #b1 opt has shape [nitems x ntrials x params x time] where params are [beta, tvalue]
+        fittext = 'b1optfit'
+    elif fittype == 'glm':
+        b1 = b1glm.mean(0)[:, paramind]        
+        fittext = 'b1glmfit'
     
     #need to align the trials in the eyetracking data with the trials in the tuning curve data:
     keeptrleyes = trlcheck<=30
@@ -161,10 +185,7 @@ for sub in subs:
     # ax.set_xlabel('time relative to array onset')
     # ax.set_title(f'regressor = {model.regressor_names[plotb+1]}')
     # fig.colorbar(plot)
-    
-    
-    # fig.colorbar(plot)
-    
+        
     # fig = plt.figure()
     # ax = fig.add_subplot(111)
     # plotd =  allt[modeltimes==0.3, 1:].squeeze()
@@ -172,17 +193,20 @@ for sub in subs:
     # ax.axhline(0, lw = 0.5, ls = 'dashed', color = 'k')
     # ax.legend()
     
-        # fig = plt.figure(figsize = [6, 3])
-        # ax = fig.add_subplot(111)
-        # ax.plot(data.times, tstats.T, label = model.regressor_names)
-        # ax.legend()
+    # fig = plt.figure(figsize = [6, 3])
+    # ax = fig.add_subplot(111)
+    # ax.plot(data.times, tstats.T, label = model.regressor_names)
+    # ax.legend()
         
     b[subcount] = allb.copy()
     t[subcount] = allt.copy()
     
     #save individual betas and tstats
-    # np.save(op.join(wd, 'data', 'glms', 'glm1', f'wmc_s{sub:02d}_glm1_betas.npy'), arr = allb)
-    # np.save(op.join(wd, 'data', 'glms', 'glm1', f'wmc_s{sub:02d}_glm1_betas.npy', arr = allt)
+    np.save(op.join(wd, 'data', 'glms', 'glm1', f'wmc_s{sub:02d}_glm1_betas_{fittext}_{addtext}.npy'), arr = allb)
+    np.save(op.join(wd, 'data', 'glms', 'glm1', f'wmc_s{sub:02d}_glm1_tvalues_{fittext}_{addtext}.npy'), arr = allt)
+    if sub == 4:
+        np.save(op.join(wd, 'data', 'glms', 'glm1', 'eyetracker_times.npy'), arr = data.times)
+        np.save(op.join(wd, 'data', 'glms', 'glm1', 'regressor_names.npy'), arr = model.regressor_names)
     
 #%%
 plt.close('all')
