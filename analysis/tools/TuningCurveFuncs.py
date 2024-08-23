@@ -450,3 +450,10 @@ def gauss_demeaned_fullmodel(x, mu, sigma, b0, b1):
     '''
     gx = gaussfunc(x, mu, sigma)
     return b0 + (b1 * (gx - gx.mean()))
+
+
+def minmax(vector):
+    '''
+    function to rescale a vector between 0 and 1, based on difference between min and max values
+    '''
+    return np.divide(vector - vector.min(), vector.max()-vector.min())
