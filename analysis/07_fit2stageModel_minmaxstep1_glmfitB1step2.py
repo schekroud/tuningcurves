@@ -98,55 +98,45 @@ for i in subs:
     dpos = data.copy()
     dpos = np.add(dpos, np.abs(dmin)) #add the minimum value (lowest distance) to shift and make everything positive
     
-    #first, fit a B1*cos(alpha*theta) model to the rescaled data to get best fitting alpha
-    #note that multiprocessing this per time point doesn't seem to actually make it any faster **at all** (its slower actually)
-    print('estimating alpha on z-scored distances, per trial and timepoint')
-    tic = time.time()
-    # alphas = np.zeros(shape = [nitems, ntrials, ntimes]) * np.nan #we get one alpha value for cosine width across distances, per tp and trial
-    step1params = np.zeros(shape = [nitems, ntrials, 2, ntimes]) * np.nan #2 as we are fitting 2 params: b1 (we dont care) and alpha (we care)
-    #b1 is only fit here to allow a flexible fit of alpha that captures the data shape properly
-    for iitem in range(nitems):
-        bar = progressbar.ProgressBar(min_value=0, max_value = ntrials, initial_value=0)
-        for itrl in range(ntrials):
-            bar.update(itrl)
-            for tp in range(ntimes):
-                iminmax = dminmax[iitem, itrl,:,tp].copy()
-                res = sp.optimize.curve_fit(lambda x, B1, alpha: tcf.fullCosineModel(x, 0, B1, alpha), #fixes B0 at 0 (removes from model, keeps everything else)
-                                                  xdata = binmidsrad,
-                                                  ydata = iminmax,
-                                                  p0 = [1, 1], #initialise both parameters at 1
-                                                  bounds = ([-np.inf, 0], [np.inf, 3]), #b1 unbounded, alpa between 0 and 3
-                                                  maxfev = 5000, method = 'trf', nan_policy='omit')[0]
-                step1params[iitem, itrl, :, tp] = res
-    toc=time.time()
-    print(f'- - alpha fitting took {int(divmod(toc-tic, 60)[0])}m{round(divmod(toc-tic, 60)[1])}s')
-
-    alphas = step1params[:,:,1,:].copy() #get just the fitted alpha values, we dont care about b1 here
+    if op.exists(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit', f's{i}_ParamFits_Alpha_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}.npy')):
+        print(f'- -  loading in previously estimated tuning curve precisions')
+        alphas = np.load(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit',
+                f's{i}_ParamFits_Alpha_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}.npy'))
+    else:
+        #first, fit a B1*cos(alpha*theta) model to the rescaled data to get best fitting alpha
+        #note that multiprocessing this per time point doesn't seem to actually make it any faster **at all** (its slower actually)
+        print('estimating alpha on z-scored distances, per trial and timepoint')
+        tic = time.time()
+        # alphas = np.zeros(shape = [nitems, ntrials, ntimes]) * np.nan #we get one alpha value for cosine width across distances, per tp and trial
+        step1params = np.zeros(shape = [nitems, ntrials, 2, ntimes]) * np.nan #2 as we are fitting 2 params: b1 (we dont care) and alpha (we care)
+        #b1 is only fit here to allow a flexible fit of alpha that captures the data shape properly
+        for iitem in range(nitems):
+            bar = progressbar.ProgressBar(min_value=0, max_value = ntrials, initial_value=0)
+            for itrl in range(ntrials):
+                bar.update(itrl)
+                for tp in range(ntimes):
+                    iminmax = dminmax[iitem, itrl,:,tp].copy()
+                    res = sp.optimize.curve_fit(lambda x, B1, alpha: tcf.fullCosineModel(x, 0, B1, alpha), #fixes B0 at 0 (removes from model, keeps everything else)
+                                                      xdata = binmidsrad,
+                                                      ydata = iminmax,
+                                                      p0 = [1, 1], #initialise both parameters at 1
+                                                      bounds = ([-np.inf, 0], [np.inf, 3]), #b1 unbounded, alpa between 0 and 3
+                                                      maxfev = 5000, method = 'trf', nan_policy='omit')[0]
+                    step1params[iitem, itrl, :, tp] = res
+        toc=time.time()
+        print(f'- - alpha fitting took {int(divmod(toc-tic, 60)[0])}m{round(divmod(toc-tic, 60)[1])}s')
     
-    if smooth_alphas:
-        alphas = sp.ndimage.gaussian_filter1d(alphas, sigma = smooth_sigma) #defaults to smooth over the last axis, which here is time
+        alphas = step1params[:,:,1,:].copy() #get just the fitted alpha values, we dont care about b1 here
+        
+        if smooth_alphas:
+            alphas = sp.ndimage.gaussian_filter1d(alphas, sigma = smooth_sigma) #defaults to smooth over the last axis, which here is time
     
+    constrain_alpha = True #whether to set alpha to have a minimum value (0.001) to provide some robustness to the glmfit (stops nans)
+    if constrain_alpha:
+        addconstr = '_constrainedAlpha'
+    else:
+        addconstr = ''
     #at the second stage, we want to fit b1 as a glm
-    
-    def minmax(vector):
-        return np.divide(vector - vector.min(), vector.max()-vector.min())
-    
-    # az = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
-    # fig = plt.figure()
-    # ax = fig.add_subplot(121)
-    # ax2 = fig.add_subplot(122)
-    # for i in range(az.size):
-    #     iaz = az[i]
-    #     ploty = np.cos(binmidsrad*iaz)
-    #     plotyminmax = minmax(ploty)
-    #     ax.plot(binmidsrad, ploty, label = str(iaz))
-    #     ax2.plot(binmidsrad, plotyminmax, label = str(iaz))
-    # ax.legend(loc='lower center')    
-    # ax2.legend(loc='lower center')    
-    
-    
-    
-    
     print('estimating beta on demeaned distances, per stimulus, trial and timepoint')
     tic=time.time()
     betas = np.zeros(shape = [nitems, ntrials, ntimes]) * np.nan
@@ -160,32 +150,34 @@ for i in subs:
                 #get the demeaned (inverse) distances across orientation bins for this timepoint
                 iy = dm[iitem, itrl, :, tp].copy()
                 ia = alphas[iitem, itrl, tp]
+                if constrain_alpha:
+                    ia = max(ia, 0.001) #constrain alpha so that it is never lower than 0.001, which can prevent model fitting
                 desmat = np.cos(binmidsrad*ia) #get a regressor that is the alpha-scaled bin centres for cosine fit
                 desmat = desmat - desmat.mean() #demean design matrix (cosine regressor) as modelling demeaned distances
-                
+                                
                 gl = sma.GLM(endog = iy, exog = desmat, family = sma.families.Gaussian())
-                # lm = sma.regression.linear_model.OLS(endog=iy, exog=desmat, hasconst=False)
                 glfit = gl.fit()
-                # lmfit = lm.fit()
 
                 ib, it = glfit.params[0], glfit.tvalues[0]
+                if np.isnan(it):
+                    print(iitem, itrl, tp)
                 glmfit[iitem, itrl, :, tp] = [ib, it]
             
-                res = sp.optimize.curve_fit(lambda x, B1: tcf.fullCosineModel(x, 0, B1, ia), #fix b0 at zero (demeaned) and fix alpha at pre-estimated alpha)
-                                            xdata = binmidsrad,
-                                            ydata = iy,
-                                            p0 = [1], bounds = ([-np.inf], [np.inf]),
-                                            maxfev = 5000, method='trf', nan_policy='omit')
-                glfitted = glfit.fittedvalues;
-                optfitted = res[0]*np.cos(binmidsrad*ia)
-                opt_mse = np.power(np.subtract(iy, optfitted),2).sum()
-                gl_mse  = glfit.deviance#np.power(np.subtract(iy, glfitted),2).sum()
+                # res = sp.optimize.curve_fit(lambda x, B1: tcf.fullCosineModel(x, 0, B1, ia), #fix b0 at zero (demeaned) and fix alpha at pre-estimated alpha)
+                #                             xdata = binmidsrad,
+                #                             ydata = iy,
+                #                             p0 = [1], bounds = ([-np.inf], [np.inf]),
+                #                             maxfev = 5000, method='trf', nan_policy='omit')
+                # glfitted = glfit.fittedvalues;
+                # optfitted = res[0]*np.cos(binmidsrad*ia)
+                # opt_mse = np.power(np.subtract(iy, optfitted),2).sum()
+                # gl_mse  = glfit.deviance#np.power(np.subtract(iy, glfitted),2).sum()
                 
-                optfitse = np.sqrt(np.diag(res[1])) #sqrt of the variance in the parameter estimate (equiv to glmfit.bse)
-                optfitT  = res[0]/optfitse
+                # optfitse = np.sqrt(np.diag(res[1])) #sqrt of the variance in the parameter estimate (equiv to glmfit.bse)
+                # optfitT  = res[0]/optfitse
                 
-                #store the parameter (beta) and t-value for this parameter
-                optfit[iitem, itrl, :, tp] = np.array([res[0], optfitT]).flatten()
+                # #store the parameter (beta) and t-value for this parameter
+                # optfit[iitem, itrl, :, tp] = np.array([res[0], optfitT]).flatten()
                 
                 
                 #plot against eachother to see fits?
@@ -205,8 +197,8 @@ for i in subs:
     # alphafit  = alphas.mean(1).mean(0)
     
     # fig = plt.figure(figsize = [9, 6])
-    # ax = fig.add_subplot(321); ax.plot(times, glfit_gm[0], lw = 1, color='k'); ax.set_ylabel('beta')
-    # ax = fig.add_subplot(322); ax.plot(times, optfit_gm[0], lw = 1, color='b'); ax.set_ylabel('beta')
+    # ax = fig.add_subplot(321); ax.plot(times, glfit_gm[0], lw = 1, color='k'); ax.set_ylabel('beta'); ax.set_title('glmfit')
+    # ax = fig.add_subplot(322); ax.plot(times, optfit_gm[0], lw = 1, color='b'); ax.set_ylabel('beta'); ax.set_title('optfit')
     # ax = fig.add_subplot(323); ax.plot(times, glfit_gm[1], lw = 1, color='k'); ax.set_ylabel('t-value')
     # ax = fig.add_subplot(324); ax.plot(times, optfit_gm[1], lw = 1, color='b'); ax.set_ylabel('t-value')
     # ax = fig.add_subplot(3,1,3); ax.plot(times, alphafit, lw = 2, color='g'); ax.set_ylabel('alpha')
@@ -218,10 +210,11 @@ for i in subs:
     
     
     #save alphas and betas
+    if not op.exists(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit', f's{i}_ParamFits_Alpha_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}.npy')):
+        np.save(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit',
+                    f's{i}_ParamFits_Alpha_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}.npy'), arr = alphas)
     np.save(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit',
-            f's{i}_ParamFits_Alpha_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}.npy'), arr = alphas)
-    np.save(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit',
-            f's{i}_ParamFits_Beta_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}_glmfit.npy'), arr = glmfit)
-    np.save(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit',
-            f's{i}_ParamFits_Beta_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}_optfit.npy'), arr = optfit)
+            f's{i}_ParamFits_Beta_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}_glmfit{addconstr}.npy'), arr = glmfit)
+    # np.save(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit',
+    #         f's{i}_ParamFits_Beta_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}_optfit.npy'), arr = optfit)
     
