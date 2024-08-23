@@ -205,6 +205,10 @@ for i in subs:
     # fig.tight_layout()
     
     #tvalues look the similar (different numeric scale) but the betas are quite different
+    #in this glm, there are instances where the beta value becomes incredibly large and negative. these large magnitude betas are accompanied by large magnitude errors
+    #as the errors are large, it rescales the beta when calculating the t-value so it isnt so bad
+    #so the timecourse of t-values between fitting methods looks similar, but the timecourse of the beta parameters will be different
+    #its just a quirk that the optimisation stops iterating at some point when changes is small where the glm approach continues
     
     
     
