@@ -34,7 +34,7 @@ subs = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 
 subs = np.array([         4, 5, 6, 7, 8, 9,     11, 12, 13, 14, 15, 16, 17, 18,     20, 21, 22,     24, 25, 26])
 #1,2,3,10,19 all have only 1 session. 23 something wrong in the second session, completely unusable eeg data due to serious noise
 nsubs = subs.size
-
+baselined = False
 subcount = 0
 for i in subs:
     subcount += 1
@@ -46,7 +46,7 @@ for i in subs:
                                    f'{param["substr"]}_arraylocked_AllTrials_Preprocessed-epo.fif'), preload=True)
     dropchans = ['RM', 'LM', 'HEOG', 'VEOG', 'Trigger'] #drop some irrelevant channels
     epochs.drop_channels(dropchans) #61 scalp channels left
-    epochs.crop(tmin = -0.5, tmax = 1.25)
+    epochs.crop(tmin = -1, tmax = 1.25)
     
     if baselined:
         epochs = epochs.apply_baseline((-0.5, -0.3))
