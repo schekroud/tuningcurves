@@ -252,87 +252,9 @@ def plot_AR(epochs, method = 'gesd', zthreshold = 1.5, p_out = .1, alpha = .05, 
 
     return axis, keep_idx
 
-
-def streaks(array):
-    '''
-    finds streaks of 1/0s in an array
-    '''
-    x = np.zeros(array.size).astype(int)
-    count = 0
-    for ind in range(len(x)):
-        if array[ind]:
-            count += 1
-        else:
-            count = 0
-        x[ind] = count
-    
-    return x
-
-def streaks_numbers(array):
-    '''
-    
-
-    Parameters
-    ----------
-    array : np.array
-        array of numbers you want to find streaks in
-
-    Returns
-    -------
-    numpy array. when a new value is found vs previous, the value of x is 1.
-    
-    It increases incrementally with each repeated number to count how many values have the same value as the previous
-
-    '''
-    
-    x = np.zeros(array.size).astype(int)
-    count = 0
-    for ind in range(len(x)):
-        if array[ind] == array[ind-1]:
-            count += 1 #continuing the sequence
-        else: #changed
-            count = 1
-        x[ind] = count
-    
-    return x
-
 def gauss_smooth(array, sigma = 2):
     return sp.ndimage.gaussian_filter1d(array, sigma = sigma, axis=1) #smooths across time, given a 2d array of trials x time
 
-def get_difficulty_sequences(subdat):
-    '''
-    
-
-    Parameters
-    ----------
-    subdat : pandas dataframe
-        dataframe containing participant behaviour. must contain column called `blocknumber` to separate blocks, and `trialdifficulty` to know difficulty on each trial of the task
-
-    Returns
-    -------
-    pandas dataframe
-        contains two new columns:
-            sinceDifficultySwitch - number of trials since the difficulty changed
-            untilDifficultySwitch - how many trials are left until the difficulty will change
-
-    '''
-    
-    data = subdat.copy()
-    nruns = data.blocknumber.unique().size #get how many task blocks, as difficulty starts fresh each block
-    df = pd.DataFrame() #make a new dataframe to append to, and return at the end
-    
-    for run in np.add(range(nruns),1): #loop over blocks
-        rundat = data.copy().query('blocknumber == @run') #get data for this block
-        
-        #getting streaks in difficulty sequence
-        streaks1 = streaks_numbers(rundat.trialdifficulty.to_numpy()) #trials since difficulty changed
-        streaks2 = np.flip(streaks_numbers(np.flip(rundat.trialdifficulty.to_numpy()))) #trials until difficulty changes
-        rundat = rundat.assign(
-            sinceDifficultySwitch = streaks1,
-            untilDifficultySwitch = streaks2)
-        df = pd.concat([df, rundat])
-    
-    return df
         
 def clusterperm_test(data, labels, of_interest, times, tmin = None, tmax = None, out_type = 'indices', n_permutations = 'Default', tail = 0, threshold = None, n_jobs = 2):
     '''
