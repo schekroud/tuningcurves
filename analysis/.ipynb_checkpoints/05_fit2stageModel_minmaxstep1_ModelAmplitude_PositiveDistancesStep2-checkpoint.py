@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
 """
+Created on Fri Aug 23 09:51:06 2024
+
+@author: sammirc
+"""
+# -*- coding: utf-8 -*-
+"""
 Created on Wed Jul 24 11:04:08 2024
 
 @author: sammirc
@@ -33,6 +39,7 @@ sys.path.insert(0, op.join(wd, 'analysis', 'tools'))
 os.chdir(wd)
 from funcs import getSubjectInfo
 import TuningCurveFuncs as tcf
+from TuningCurveFuncs import minmax
 
 
 subs = np.array([         4, 5, 6, 7, 8, 9,     11, 12, 13, 14, 15, 16, 17, 18,     20, 21, 22,     24, 25, 26])
@@ -80,32 +87,27 @@ for i in subs:
     data = data * -1 #sign flip mahalanobis distances so that larger (more positive) values reflect more similar representations
     d = data.copy()
     dm = data.copy()
-    dz = data.copy()
     dminmax = data.copy()
     
     #demean the vector of distances at each time point, separately for each item and trial
     imean = np.mean(data.copy(), axis=2, keepdims=True)
     dm = np.subtract(d.copy(), imean)
     
-    #we also want to zscore the single trial distances to have a copy that has [mean, var] [0, 1]
-    dz = sp.stats.zscore(dz, axis=2) #zscore along the feature bin axis
-    
     # we also want a version of the data that is minmax scaled across orientation bins
     # for that, we need a few things:
     dmin = d.min(axis=2, keepdims=True)
     dmax = d.max(axis=2, keepdims=True)
     dminmax = np.divide(np.subtract(dminmax, dmin), np.subtract(dmax, dmin)) #scales bin distances linearly between 0 and 1
-    dpos = data.copy()
-    dpos = np.add(dpos, np.abs(dmin)) #add the minimum value (lowest distance) to shift and make everything positive
     
+    #alpha was already previously estimated, so we can just read it in here
     if op.exists(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit', f's{i}_ParamFits_Alpha_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}.npy')):
-        print(f'- -  loading in previously estimated tuning curve precisions')
+        print(f'\n- -  loading in previously estimated tuning curve precisions')
         alphas = np.load(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit',
                 f's{i}_ParamFits_Alpha_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}.npy'))
     else:
-        #first, fit a B1*cos(alpha*theta) model to the rescaled data to get best fitting alpha
+        #first, fit a B1*cos(precision*theta) model to the rescaled data to get best fitting alpha
         #note that multiprocessing this per time point doesn't seem to actually make it any faster **at all** (its slower actually)
-        print('estimating alpha on z-scored distances, per trial and timepoint')
+        print('estimating tuning curve precision, per trial and timepoint')
         tic = time.time()
         # alphas = np.zeros(shape = [nitems, ntrials, ntimes]) * np.nan #we get one alpha value for cosine width across distances, per tp and trial
         step1params = np.zeros(shape = [nitems, ntrials, 2, ntimes]) * np.nan #2 as we are fitting 2 params: b1 (we dont care) and alpha (we care)
@@ -124,7 +126,7 @@ for i in subs:
                                                       maxfev = 5000, method = 'trf', nan_policy='omit')[0]
                     step1params[iitem, itrl, :, tp] = res
         toc=time.time()
-        print(f'- - alpha fitting took {int(divmod(toc-tic, 60)[0])}m{round(divmod(toc-tic, 60)[1])}s')
+        print(f'- - tuning curve precision modelling took {int(divmod(toc-tic, 60)[0])}m{round(divmod(toc-tic, 60)[1])}s')
     
         alphas = step1params[:,:,1,:].copy() #get just the fitted alpha values, we dont care about b1 here
         
@@ -136,8 +138,10 @@ for i in subs:
         addconstr = '_constrainedAlpha'
     else:
         addconstr = ''
-    #at the second stage, we want to fit b1 as a glm
-    print('estimating beta on demeaned distances, per stimulus, trial and timepoint')
+    
+    
+    #at the second stage, we want to fit tuning curve amplitude, with both a glm and an optimisation routine
+    print('estimating tuning curve amplitude, per stimulus, trial and timepoint')
     tic=time.time()
     betas = np.zeros(shape = [nitems, ntrials, ntimes]) * np.nan
     glmfit = np.zeros(shape = [nitems, ntrials, 2, ntimes]) * np.nan #2 because storing beta & t-value
@@ -148,46 +152,39 @@ for i in subs:
             bar.update(itrl)
             for tp in range(ntimes):
                 #get the demeaned (inverse) distances across orientation bins for this timepoint
-                iy = dm[iitem, itrl, :, tp].copy()
+                iy = d[iitem, itrl, :, tp].copy() #get raw, inverted distances
+                iypos = np.add(iy, np.abs(iy.min())) #get distances in an exclusively positive way. preserves shape of distances across orientations
+                
                 ia = alphas[iitem, itrl, tp]
                 if constrain_alpha:
                     ia = max(ia, 0.001) #constrain alpha so that it is never lower than 0.001, which can prevent model fitting
-                desmat = np.cos(binmidsrad*ia) #get a regressor that is the alpha-scaled bin centres for cosine fit
-                desmat = desmat - desmat.mean() #demean design matrix (cosine regressor) as modelling demeaned distances
-                                
-                gl = sma.GLM(endog = iy, exog = desmat, family = sma.families.Gaussian())
-                glfit = gl.fit()
+                
+                desmat = minmax(np.cos(binmidsrad*ia)) #minmax scale the cosine that is weighted by the pre-estimated alpha value
 
-                ib, it = glfit.params[0], glfit.tvalues[0]
-                if np.isnan(it):
-                    print(iitem, itrl, tp)
-                glmfit[iitem, itrl, :, tp] = [ib, it]
-            
-                # res = sp.optimize.curve_fit(lambda x, B1: tcf.fullCosineModel(x, 0, B1, ia), #fix b0 at zero (demeaned) and fix alpha at pre-estimated alpha)
-                #                             xdata = binmidsrad,
-                #                             ydata = iy,
-                #                             p0 = [1], bounds = ([-np.inf], [np.inf]),
-                #                             maxfev = 5000, method='trf', nan_policy='omit')
-                # glfitted = glfit.fittedvalues;
-                # optfitted = res[0]*np.cos(binmidsrad*ia)
-                # opt_mse = np.power(np.subtract(iy, optfitted),2).sum()
-                # gl_mse  = glfit.deviance#np.power(np.subtract(iy, glfitted),2).sum()
                 
-                # optfitse = np.sqrt(np.diag(res[1])) #sqrt of the variance in the parameter estimate (equiv to glmfit.bse)
-                # optfitT  = res[0]/optfitse
+                gl = sma.GLM(endog = iypos, exog = desmat, family = sma.families.Gaussian())
+                glfit = gl.fit()
+                ib, it = glfit.params[0], glfit.tvalues[0] #get the fitted beta weight and t-value
+                glmfit[iitem, itrl, :, tp] = [ib, it] #store them
                 
-                # #store the parameter (beta) and t-value for this parameter
-                # optfit[iitem, itrl, :, tp] = np.array([res[0], optfitT]).flatten()
+                #now estimate the same tuning curve amplitude parameter but using an optimisation method instead of a glm
+                res = sp.optimize.curve_fit(lambda x, B1: tcf.fullCosineModel(x, 0, B1, ia), #fix b0 at zero (demeaned) and fix alpha at pre-estimated alpha)
+                                            xdata = binmidsrad,
+                                            ydata = iypos,
+                                            p0 = [1], bounds = ([-np.inf], [np.inf]),
+                                            maxfev = 5000, method='trf', nan_policy='omit')
+                glfitted = glfit.fittedvalues;
+                optfitted = res[0]*np.cos(binmidsrad*ia)
+                opt_mse = np.power(np.subtract(iy, optfitted),2).sum()
+                gl_mse  = glfit.deviance #np.power(np.subtract(iy, glfitted),2).sum()
                 
+                optfitse = np.sqrt(np.diag(res[1])) #sqrt of the variance in the parameter estimate (equiv to glmfit.bse)
+                optfitT  = res[0]/optfitse
                 
-                #plot against eachother to see fits?
-                # fig = plt.figure()
-                # ax = fig.add_subplot(111)
-                # ax.plot(binmidsrad, iy, lw = 2, color = 'k')
-                # ax.plot(binmidsrad, glfitted, lw = 1, color = 'b')
-                # ax.plot(binmidsrad, optfitted, lw = 1, color = 'r')
+                #store the optimised amplitude parameter (beta) and its t-value
+                optfit[iitem, itrl, :, tp] = np.array([res[0], optfitT]).flatten()
     toc=time.time()
-    print(f'- - beta fitting took {int(divmod(toc-tic, 60)[0])}m{round(divmod(toc-tic, 60)[1])}s')
+    print(f'- - amplitude modelling took {int(divmod(toc-tic, 60)[0])}m{round(divmod(toc-tic, 60)[1])}s')
     
     
     #compare optimize fit vs glmfit of second level
@@ -197,28 +194,33 @@ for i in subs:
     # alphafit  = alphas.mean(1).mean(0)
     
     # fig = plt.figure(figsize = [9, 6])
-    # ax = fig.add_subplot(321); ax.plot(times, glfit_gm[0], lw = 1, color='k'); ax.set_ylabel('beta'); ax.set_title('glmfit')
-    # ax = fig.add_subplot(322); ax.plot(times, optfit_gm[0], lw = 1, color='b'); ax.set_ylabel('beta'); ax.set_title('optfit')
+    # ax = fig.add_subplot(321); ax.plot(times, glfit_gm[0], lw = 1, color='k'); ax.set_ylabel('beta')
+    # ax = fig.add_subplot(322); ax.plot(times, optfit_gm[0], lw = 1, color='b'); ax.set_ylabel('beta')
     # ax = fig.add_subplot(323); ax.plot(times, glfit_gm[1], lw = 1, color='k'); ax.set_ylabel('t-value')
     # ax = fig.add_subplot(324); ax.plot(times, optfit_gm[1], lw = 1, color='b'); ax.set_ylabel('t-value')
     # ax = fig.add_subplot(3,1,3); ax.plot(times, alphafit, lw = 2, color='g'); ax.set_ylabel('alpha')
     # fig.tight_layout()
     
-    #tvalues look the similar (different numeric scale) but the betas are quite different
-    #in this glm, there are instances where the beta value becomes incredibly large and negative. these large magnitude betas are accompanied by large magnitude errors
-    #as the errors are large, it rescales the beta when calculating the t-value so it isnt so bad
-    #so the timecourse of t-values between fitting methods looks similar, but the timecourse of the beta parameters will be different
-    #its just a quirk that the optimisation stops iterating at some point when changes is small where the glm approach continues
     
     
+    if i==4:
+        #for the first participant, write to file what model parameters are used
+        model_settings = dict() 
+        model_settings['smooth_alphas'] = smooth_alphas
+        model_settings['smooth_sigma'] = smooth_sigma
+        model_settings['constrain_alpha'] = constrain_alpha
+        model_settings['minmax_stage1'] = True
+        model_settings['minmax_designmatrix_stage2'] = True
+        
+        np.save(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit_b1desmatminmax', 'model_settings.npy'), model_settings)
     
+    #save tuning curve model parameters
+    np.save(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit_b1desmatminmax',
+                f's{i}_ParamFits_precision_binstep{binstep}_binwidth{binwidth}_smoothedprec.npy'), arr = alphas)
     
-    #save alphas and betas
-    if not op.exists(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit', f's{i}_ParamFits_Alpha_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}.npy')):
-        np.save(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit',
-                    f's{i}_ParamFits_Alpha_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}.npy'), arr = alphas)
-    np.save(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit',
-            f's{i}_ParamFits_Beta_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}_glmfit{addconstr}.npy'), arr = glmfit)
-    # np.save(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit',
-    #         f's{i}_ParamFits_Beta_binstep{binstep}_binwidth{binwidth}_smoothedAlpha_{smooth_alphas}{smooth_sigma}_optfit.npy'), arr = optfit)
+    np.save(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit_b1desmatminmax',
+            f's{i}_ParamFits_amplitude_binstep{binstep}_binwidth{binwidth}_smoothedprec_glmfit.npy'), arr = glmfit)
+    
+    np.save(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit_b1desmatminmax',
+            f's{i}_ParamFits_amplitude_binstep{binstep}_binwidth{binwidth}_smoothedprec_optfit.npy'), arr = optfit)
     
