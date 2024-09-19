@@ -74,7 +74,7 @@ for sub in subs:
         # alpha = alpha.mean(0)
         # b1    = b1.mean(0)
         alpha = alpha.mean(0) #average across items in the array
-        use_b = True
+        use_b = False
         if use_b:
             paramind = 0
             addtext = 'modelAmplitudeBeta'
@@ -136,7 +136,7 @@ for sub in subs:
         print('- - - - -  running glm across tuning curve timepoints - - - - -')
         for itp in range(modeltimes.size):
             #get parameter estimates for this timepoint, across trials    
-            ia = alpha[:, itp]
+            ia  = alpha[:, itp]
             ib1 = amp[:,itp]
             
             DC = glm.design.DesignConfig()
