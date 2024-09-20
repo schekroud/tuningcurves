@@ -46,12 +46,34 @@ nsubs = subs.size
 modeltimes = np.round(np.load(op.join(wd, 'data', 'tuningcurves', 'times.npy')), 2)
 
 for sub in subs:
+    #only read the eeg data in once ...
+    #read in the eeg alpha data
+    isub = dict(loc = loc, id = sub)
+    param = getSubjectInfo(isub)
+    
+    tfr = mne.time_frequency.read_tfrs(fname = op.join(param['path'], 'eeg', f's{sub:02d}/wmConfidence_s{sub:02d}_arraylocked_preproc_alpha-tfr.h5'))
+    #dont need to align these data types, as tfr is done on the same trials as the tuning curve estimation (both on preprocessed/kept epochs)
+    
+    #crop data
+    tfr = tfr.crop(tmin = -0.7, tmax = 1)
+    eegtimes = tfr.times.copy()
+    vischans = [
+        'P7', 'P5', 'P3', 'P1', 'Pz', 'P2', 'P4', 'P6', 'P8',
+                'PO7', 'PO3',  'POz', 'PO4', 'PO8', 
+                        'O1', 'Oz', 'O2']
+    tfr = tfr.pick(picks=vischans)
+    tfdata = tfr._data.copy()   
+    
+    logdata = True
+    if logdata:
+        tfdata = np.multiply(10, np.log10(tfdata))
+        logtxt = '_logpower'
+    else:
+        logtxt = ''
+    tfdata = tfdata.mean(2).mean(1) #average across frequencies then channels
+    
     for fittype in ['opt', 'glm']:
-        # if not op.exists(op.join(eyedir, 'preprocessed', f'EffDS{sub}_preprocessed.pickle')): #dont do this if it already exists!
         print(f'\n- - - working on ppt {sub} - - -')
-        # data = eyes.io.load(op.join(eyedir, 'epoched', f'wmc_s{sub:02d}_pupil_arraylocked.pickle'))
-        # data = data.apply_baseline([-0.5, -0.2])
-        # trlcheck = np.load(op.join(eyedir, 'epoched', f'wmc_s{sub:02d}_arraylocked_nanperc.npy')) #this always has as many trials as the eyetracking data does
         #load in the parameter fits for this participant
         binstep, binwidth = 4, 22
         smooth_alphas, smooth_sigma = True, 3
@@ -60,13 +82,13 @@ for sub in subs:
         alpha = np.load(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit_b1desmatminmax',
                 f's{sub}_ParamFits_precision_binstep{binstep}_binwidth{binwidth}_smoothedprec.npy'))
         
-        
         ampglm = np.load(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit_b1desmatminmax',
             f's{sub}_ParamFits_amplitude_binstep{binstep}_binwidth{binwidth}_smoothedprec_glmfit.npy'))
         
         ampopt = np.load(op.join(wd, 'data', 'tuningcurves', 'parameter_fits', 'twostage_alphaminmaxfit_b1desmatminmax',
             f's{sub}_ParamFits_amplitude_binstep{binstep}_binwidth{binwidth}_smoothedprec_optfit.npy'))
-        #note here precision is modelled in the same way, but amplitude is modelled with a constrained alpha (min 0.001), and minmax-scaled design matrix for the glmfit. optimised fit doesnt have to scale the design matrix
+        # note here precision is modelled in the same way, but amplitude is modelled with a constrained alpha (min 0.001), and minmax-scaled design matrix for the glmfit
+        # optimised fit doesnt have to scale the design matrix
         
         tcbdata = pd.read_csv(op.join(wd, 'data', 'tuningcurves', f's{sub}_TuningCurve_metadata.csv')) #read in associated behavioural data
         
@@ -97,31 +119,6 @@ for sub in subs:
         elif not smoothamp:
             amptxt = ''
             
-        #read in the eeg alpha data
-        isub = dict(loc = loc, id = sub)
-        param = getSubjectInfo(isub)
-        
-        tfr = mne.time_frequency.read_tfrs(fname = op.join(param['path'], 'eeg', f's{sub:02d}/wmConfidence_s{sub:02d}_arraylocked_preproc_alpha-tfr.h5'))
-        #dont need to align these data types, as tfr is done on the same trials as the tuning curve estimation (both on preprocessed/kept epochs)
-        
-        #crop data
-        tfr = tfr.crop(tmin = -0.7, tmax = 1)
-        eegtimes = tfr.times.copy()
-        vischans = [
-            'P7', 'P5', 'P3', 'P1', 'Pz', 'P2', 'P4', 'P6', 'P8',
-                    'PO7', 'PO3',  'POz', 'PO4', 'PO8', 
-                            'O1', 'Oz', 'O2']
-        tfr = tfr.pick(picks=vischans)
-        tfdata = tfr._data.copy()   
-        
-        logdata = True
-        if logdata:
-            tfdata = np.multiply(10, np.log10(tfdata))
-            logtxt = '_logpower'
-        else:
-            logtxt = ''
-        tfdata = tfdata.mean(2).mean(1) #average across frequencies then channels
-        
         #create a trial regressor (zscored) to account for potential drift of alpha over time
         tcbdata = tcbdata.assign(trlid = np.where(tcbdata.session.eq('a'), tcbdata.trialnum, tcbdata.trialnum + 256))
         trlz = np.arange(512)+1 #identifier with max number of trials
