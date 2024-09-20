@@ -50,8 +50,9 @@ weightTrials = True #whether trial contributions to mean activity for a referenc
 # binstep 4  options for binwidth: 11, 16, 22
 # binstep 15 options for binwidth: 10, 15, 22
 # binstep, binwidth = 4, 22
-binstep, binwidth = 4, 11
+# binstep, binwidth = 4, 11
 # binstep, binwidth = 15, 22
+binstep, binwidth = 15, 15
 _, binmids, binstarts, binends = tcf.createFeatureBins(binstep = binstep, binwidth = binwidth,
                                                        feature_start = -90+binstep, feature_end = 90)
 thetas = np.cos(np.radians(binmids))
