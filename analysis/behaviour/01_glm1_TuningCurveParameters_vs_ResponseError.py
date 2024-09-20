@@ -49,6 +49,7 @@ for sub in subs:
     # print(f'- - - working on ppt {sub} - - -')
     #load in the parameter fits for this participant
     binstep, binwidth = 4, 22
+    binstep, binwidth = 15, 22
     smooth_alphas, smooth_sigma = True, 3
     
     #read in modelled tuning curve parameters
@@ -68,25 +69,25 @@ for sub in subs:
     bdata = bdata.assign(trlid = np.where(bdata.session.eq('a'), bdata.trialnum, bdata.trialnum+256)) #get trialnumber
     bdata = bdata.query('trlid in @tcbdata.trlid') #take just the trials used in the tuning curve decomposition
     
-    # #drop trials with slow RTs (more than 2.5sds from the ppt mean)
-    # dt = bdata.DT.to_numpy()
-    # meandt = dt.mean() #mean decision time
-    # sd_dt  = dt.std() #std deviation of decision times
-    # dtcheck = np.logical_or(np.greater(dt, meandt + 3*sd_dt), np.less(dt, meandt - 3*sd_dt)) #mark as 1 if discard
-    # dtcheck = np.greater(dt, meandt + 3*sd_dt)
-    # bdata = bdata.assign(DTcheck = dtcheck) #reassign dtcheck so it's across all trials of the participant, not within cue condition
-    # keeptrls = dtcheck == 0 #mark if keeping a trial
+    #drop trials with slow RTs (more than 2.5sds from the ppt mean)
+    dt = bdata.DT.to_numpy()
+    meandt = dt.mean() #mean decision time
+    sd_dt  = dt.std() #std deviation of decision times
+    dtcheck = np.logical_or(np.greater(dt, meandt + 3*sd_dt), np.less(dt, meandt - 3*sd_dt)) #mark as 1 if discard
+    dtcheck = np.greater(dt, meandt + 3*sd_dt)
+    bdata = bdata.assign(DTcheck = dtcheck) #reassign dtcheck so it's across all trials of the participant, not within cue condition
+    keeptrls = dtcheck == 0 #mark if keeping a trial
 
-    # #discard trials that are too slow
-    # alpha  = alpha[:,keeptrls]
-    # ampglm = ampglm[:,keeptrls]
-    # bdata  = bdata.iloc[keeptrls]
+    #discard trials that are too slow
+    alpha  = alpha[:,keeptrls]
+    ampglm = ampglm[:,keeptrls]
+    bdata  = bdata.iloc[keeptrls]
 
     #exclude trials with over 60 degrees of error
-    keeptrls = bdata.absrdif.le(60).to_numpy()
-    alpha = alpha[:, keeptrls]
-    ampglm = ampglm[:,keeptrls]
-    bdata = bdata.query('absrdif <= 60')
+    # keeptrls = bdata.absrdif.le(60).to_numpy()
+    # alpha = alpha[:, keeptrls]
+    # ampglm = ampglm[:,keeptrls]
+    # bdata = bdata.query('absrdif <= 60')
     
     [nitems, ntrials, ntimes] = alpha.shape #get some feature dimensions
     
@@ -166,7 +167,7 @@ for sub in subs:
 print('done fitting on all participants')
 
 #save across subject betas in one file
-np.save(op.join(wd, 'data', 'glms', 'tc_behaviour', 'glm1', 'TCParamsXbehaviour_beta_precision.npy'), arr = b_prec)
-np.save(op.join(wd, 'data', 'glms', 'tc_behaviour', 'glm1', 'TCParamsXbehaviour_beta_amplitude.npy'), arr = b_amp)
-np.save(op.join(wd, 'data', 'glms', 'tc_behaviour', 'glm1', 'TCParamsXbehaviour_tstat_precision.npy'), arr = t_prec)
-np.save(op.join(wd, 'data', 'glms', 'tc_behaviour', 'glm1', 'TCParamsXbehaviour_tstat_amplitude.npy'), arr = t_amp)
+np.save(op.join(wd, 'data', 'glms', 'tc_behaviour', 'glm1', f'TCParamsXbehaviour_beta_precision_binstep{binstep}_binwidth{binwidth}.npy'), arr = b_prec)
+np.save(op.join(wd, 'data', 'glms', 'tc_behaviour', 'glm1', f'TCParamsXbehaviour_beta_amplitude_binstep{binstep}_binwidth{binwidth}.npy'), arr = b_amp)
+np.save(op.join(wd, 'data', 'glms', 'tc_behaviour', 'glm1', f'TCParamsXbehaviour_tstat_precision_binstep{binstep}_binwidth{binwidth}.npy'), arr = t_prec)
+np.save(op.join(wd, 'data', 'glms', 'tc_behaviour', 'glm1', f'TCParamsXbehaviour_tstat_amplitude_binstep{binstep}_binwidth{binwidth}.npy'), arr = t_amp)
