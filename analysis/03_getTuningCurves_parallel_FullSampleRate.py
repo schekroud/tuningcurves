@@ -153,7 +153,7 @@ if __name__ == "__main__":
         # fig.colorbar(plot)
         
         #save data
-        np.save(op.join(wd, 'data', 'tuningcurves', f's{i}_TuningCurve_mahaldists_500Hz_binstep{binstep}_binwidth{binwidth}_weightTrials{weightTrials}.npy'), tc_all)
+        np.save(op.join(wd, 'data', 'tuningcurves', '500hz', f's{i}_TuningCurve_mahaldists_500Hz_binstep{binstep}_binwidth{binwidth}_weightTrials{weightTrials}.npy'), tc_all)
         
         if not op.exists(op.join(wd, 'data', 'tuningcurves', f's{i}_TuningCurve_metadata.csv')):
             bdata.to_csv(op.join(wd, 'data', 'tuningcurves', f's{i}_TuningCurve_metadata.csv'), index=False)
