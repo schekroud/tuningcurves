@@ -205,7 +205,7 @@ for it in range(len(exampletrls)):
 ax2.set_xlabel('orientation')
 ax3.set_xlabel('orientation')
 ax4.set_xlabel('orientation')
-
+fig.savefig(op.join(figdir, 'trialexamples_modellingapproach.pdf'), dpi = 300, format = 'pdf')
 # subfig2.suptitle('similarity', fontsize=10)
 # subfig3.suptitle('re-scaled similarity', fontsize=10)
 # subfig4.suptitle('positive similarity', fontsize = 10)
