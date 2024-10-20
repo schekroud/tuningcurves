@@ -108,7 +108,6 @@ data = data.mean(0) #now has [trials x bins x times]
 #%%
 plt.close('all')
 tps = np.logical_and(times >= 0.05, times <= 0.25)
-plotdat = data.copy()[trl,:,tps].T.mean(-1)
 plottrls = 10
 trlshift = 190
 fig = plt.figure(figsize = [16,2])
@@ -199,8 +198,10 @@ for it in range(len(exampletrls)):
         a.set_xticks(np.arange(-90, 91, 45))
         a.tick_params(axis='x', which='major', labelsize=10)
         a.set_xticks(np.arange(-90, 90, 15), minor=True)
-        
+    
     ax2.set_ylabel('pattern similarity (AU)')
+    ax3.set_ylim([-0.05, 1.05])
+    ax4.set_ylim([-0.001, None])    
 
 ax2.set_xlabel('orientation')
 ax3.set_xlabel('orientation')
